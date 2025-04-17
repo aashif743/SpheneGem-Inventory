@@ -164,7 +164,7 @@ const AddGemstoneForm = ({
             />
           </Grid>
           <Grid item xs={12}>
-            <Button variant="outlined" component="label">
+            <Button variant="outlined" component="label" color="secondary">
               Upload Image
               <input type="file" accept="image/*" hidden onChange={handleFileChange} />
             </Button>
@@ -174,8 +174,23 @@ const AddGemstoneForm = ({
               </Typography>
             )}
           </Grid>
-          <Grid item xs={12}>
-            <Button type="submit" variant="contained" color="primary" fullWidth>
+          <Grid item xs={12} sm={6}>
+            <Button
+              onClick={onClose}
+              variant="outlined"
+              color="primary"
+              fullWidth
+            >
+              Cancel
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              fullWidth
+            >
               Add Gemstone
             </Button>
           </Grid>

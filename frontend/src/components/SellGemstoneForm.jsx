@@ -24,15 +24,39 @@ const SellGemstoneForm = ({
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === 'caratSold') setCaratSold(value);
-    else if (name === 'sellingPrice') setSellingPrice(value);
-    else if (name === 'quantity') setQuantity(value);
+    let updatedCarat = caratSold;
+    let updatedPrice = sellingPrice;
+    let updatedTotal = totalAmount;
 
-    const weight = parseFloat(name === 'caratSold' ? value : caratSold);
-    const price = parseFloat(name === 'sellingPrice' ? value : sellingPrice);
+    if (name === 'caratSold') {
+      setCaratSold(value);
+      updatedCarat = value;
+    } else if (name === 'sellingPrice') {
+      setSellingPrice(value);
+      updatedPrice = value;
+    } else if (name === 'totalAmount') {
+      setTotalAmount(value);
+      updatedTotal = value;
+    } else if (name === 'quantity') {
+      setQuantity(value);
+    }
 
-    if (!isNaN(weight) && !isNaN(price)) {
-      setTotalAmount((weight * price).toFixed(2));
+    const weight = parseFloat(updatedCarat);
+    const price = parseFloat(updatedPrice);
+    const total = parseFloat(updatedTotal);
+
+    // Auto-calculate total if carat and price per carat are filled
+    if (name === 'caratSold' || name === 'sellingPrice') {
+      if (!isNaN(weight) && !isNaN(price)) {
+        setTotalAmount((weight * price).toFixed(2));
+      }
+    }
+
+    // Auto-calculate selling price if carat and total amount are filled
+    if (name === 'caratSold' || name === 'totalAmount') {
+      if (!isNaN(weight) && !isNaN(total) && weight > 0) {
+        setSellingPrice((total / weight).toFixed(2));
+      }
     }
   };
 
@@ -48,7 +72,7 @@ const SellGemstoneForm = ({
         price_per_carat: gemstone.price_per_carat,
         marking_price: gemstone.total_price,
         selling_price: sellingPrice,
-        total_price: totalAmount,
+        total_amount: totalAmount,
         quantity: quantity,
         remark: gemstone.remark,
         sold_date: new Date().toISOString().slice(0, 19).replace('T', ' ')
@@ -58,7 +82,7 @@ const SellGemstoneForm = ({
       setSnackbarSeverity?.('success');
       setShowSnackbar?.(true);
 
-      // Optional: Auto-download invoice
+      // Auto-download invoice
       if (response.data.invoice) {
         const invoiceFile = response.data.invoice;
         const link = document.createElement('a');
@@ -127,10 +151,11 @@ const SellGemstoneForm = ({
             <TextField
               name="totalAmount"
               label="Total Amount"
-              type="text"
+              type="number"
               fullWidth
+              required
               value={totalAmount}
-              InputProps={{ readOnly: true }}
+              onChange={handleChange}
             />
           </Grid>
         </Grid>

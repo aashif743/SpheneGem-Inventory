@@ -4,10 +4,32 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts';
+import {
+  Box,
+  Typography,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  Grid,
+  Skeleton
+} from '@mui/material';
+import {
+  Diamond as DiamondIcon,
+  Scale as ScaleIcon,
+  AttachMoney as MoneyIcon,
+  TrendingUp as TrendingIcon,
+  CalendarMonth as CalendarIcon,
+  PieChart as PieChartIcon,
+  BarChart as BarChartIcon
+} from '@mui/icons-material';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FDB', '#FF6384'];
 
 const Dashboard = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [stats, setStats] = useState({
     totalGemstones: 0,
     totalCarat: 0,
@@ -21,13 +43,15 @@ const Dashboard = () => {
     salesData: [],
   });
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
         const response = await axios.get('http://localhost:5000/api/dashboard/stats');
         setStats({
           totalGemstones: response.data.totalGemstones,
-          totalCarat: response.data.totalCarats,
+          totalCarat: response.data.totalCarat,
           totalSales: response.data.totalSales,
           totalRevenue: response.data.totalRevenue,
         });
@@ -41,133 +65,192 @@ const Dashboard = () => {
         });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchDashboardStats();
   }, []);
 
+  const StatCard = ({ title, value, icon }) => (
+    <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
+      <CardContent>
+        <Box display="flex" alignItems="center" mb={1}>
+          {icon}
+          <Typography variant="subtitle2" color="text.secondary" ml={1}>
+            {title}
+          </Typography>
+        </Box>
+        {loading ? (
+          <Skeleton variant="text" width="60%" height={40} />
+        ) : (
+          <Typography variant="h5" fontWeight={600}>
+            {value}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>📊 Dashboard</h2>
+    <Box sx={{ p: isMobile ? 1 : 3 }}>
+      <Typography variant="h5" fontWeight={600} gutterBottom>
+        Dashboard Overview
+      </Typography>
+      <Typography variant="body2" color="text.secondary" mb={3}>
+        Key metrics and analytics at a glance
+      </Typography>
 
       {/* Stat Cards */}
-      <div style={statCardGrid}>
-        <StatCard title="Total Gemstones" value={stats.totalGemstones} />
-        <StatCard title="Total Carat in Stock" value={stats.totalCarat} />
-        <StatCard title="Total Sales" value={stats.totalSales} />
-        <StatCard title="Total Revenue" value={`Rs. ${stats.totalRevenue.toLocaleString()}`} />
-      </div>
+      <Grid container spacing={2} mb={3}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Total Gemstones" 
+            value={stats.totalGemstones} 
+            icon={<DiamondIcon color="primary" />}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Total Carat" 
+            value={stats.totalCarat} 
+            icon={<ScaleIcon color="secondary" />}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Total Sales" 
+            value={stats.totalSales} 
+            icon={<TrendingIcon color="success" />}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Total Revenue" 
+            value={`$${stats.totalRevenue.toLocaleString()}`} 
+            icon={<MoneyIcon color="warning" />}
+          />
+        </Grid>
+      </Grid>
 
       {/* Market & Sales Overview */}
-      <div style={twoColumnGrid}>
-        <div style={cardStyle}>
-          <h3>🪙 Gemstones Added Monthly</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData.monthlyGemstones}>
-              <Area type="monotone" dataKey="count" stroke="#3498db" fill="#3498db33" />
-              <XAxis dataKey="month" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div style={cardStyle}>
-          <h3>📈 Sales Overview</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData.salesData}>
-              <Line type="monotone" dataKey="value" stroke="#2ecc71" strokeWidth={2} />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <Grid container spacing={2} mb={3}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <CalendarIcon color="action" />
+                <Typography variant="h6" ml={1}>
+                  Monthly Gemstones Added
+                </Typography>
+              </Box>
+              {loading ? (
+                <Skeleton variant="rectangular" height={200} />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={chartData.monthlyGemstones}>
+                    <Area type="monotone" dataKey="count" stroke="#3498db" fill="#3498db33" />
+                    <XAxis dataKey="month" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <TrendingIcon color="action" />
+                <Typography variant="h6" ml={1}>
+                  Sales Trend
+                </Typography>
+              </Box>
+              {loading ? (
+                <Skeleton variant="rectangular" height={200} />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={chartData.salesData}>
+                    <Line type="monotone" dataKey="value" stroke="#2ecc71" strokeWidth={2} />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <Tooltip />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Bottom Charts */}
-      <div style={bottomGrid}>
-        <div style={cardStyle}>
-          <h3>💹 Sales Analytics</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData.salesData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div style={cardStyle}>
-          <h3>💰 Revenue by Gemstone</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData.revenueByGemstone}
-                dataKey="total_revenue"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label
-              >
-                {chartData.revenueByGemstone.map((entry, index) => (
-                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Legend />
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={8}>
+          <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <BarChartIcon color="action" />
+                <Typography variant="h6" ml={1}>
+                  Sales Analytics
+                </Typography>
+              </Box>
+              {loading ? (
+                <Skeleton variant="rectangular" height={300} />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData.salesData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <PieChartIcon color="action" />
+                <Typography variant="h6" ml={1}>
+                  Revenue Distribution
+                </Typography>
+              </Box>
+              {loading ? (
+                <Skeleton variant="rectangular" height={300} />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.revenueByGemstone}
+                      dataKey="total_revenue"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label
+                    >
+                      {chartData.revenueByGemstone.map((entry, index) => (
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Legend />
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   );
-};
-
-const StatCard = ({ title, value }) => (
-  <div style={statCardStyle}>
-    <h4 style={{ margin: '0 0 10px 0', color: '#7f8c8d' }}>{title}</h4>
-    <p style={{ margin: '0', fontSize: '22px', fontWeight: 'bold', color: '#2c3e50' }}>{value}</p>
-  </div>
-);
-
-// Styles
-const statCardGrid = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-  gap: '20px',
-  marginBottom: '30px'
-};
-
-const statCardStyle = {
-  background: '#fff',
-  borderRadius: '10px',
-  padding: '20px',
-  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-};
-
-const twoColumnGrid = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '20px',
-  marginBottom: '30px'
-};
-
-const bottomGrid = {
-  display: 'grid',
-  gridTemplateColumns: '2fr 1fr',
-  gap: '20px'
-};
-
-const cardStyle = {
-  background: 'white',
-  borderRadius: '10px',
-  padding: '20px',
-  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
 };
 
 export default Dashboard;

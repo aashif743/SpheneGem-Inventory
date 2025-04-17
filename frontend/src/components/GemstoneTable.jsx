@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
+  Card,
+  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -15,14 +17,30 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   TextField,
   Typography,
   useMediaQuery,
   useTheme,
   Alert,
   Slide,
+  Avatar,
+  Tooltip,
+  Divider,
+  InputAdornment
 } from '@mui/material';
-import { Edit, Delete, Sell } from '@mui/icons-material';
+import { 
+  Edit, 
+  Delete, 
+  Sell, 
+  Add, 
+  Search,
+  Image as ImageIcon,
+  Inventory,
+  AttachMoney,
+  Scale,
+  Description
+} from '@mui/icons-material';
 import {
   getAllGemstones,
   deleteGemstone,
@@ -33,20 +51,25 @@ import EditGemstoneForm from './EditGemstoneForm';
 import AddGemstoneForm from './AddGemstoneForm';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
 
-
-// Snackbar animation
 const TransitionUp = (props) => <Slide {...props} direction="up" />;
 
 const GemstoneTable = () => {
   const [gemstones, setGemstones] = useState([]);
+  const [filteredGemstones, setFilteredGemstones] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+
   const [selectedGem, setSelectedGem] = useState(null);
   const [editingGemstone, setEditingGemstone] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showSnackbar, setShowSnackbar] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState('success'); // success | error | warning | info
-  const [deleteTarget, setDeleteTarget] = useState(null); // stores gemstone to delete
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -55,55 +78,77 @@ const GemstoneTable = () => {
     try {
       const res = await getAllGemstones();
       setGemstones(res.data);
+      setFilteredGemstones(res.data);
     } catch (err) {
-      console.error('Failed to fetch gemstones', err);
+      console.error('Error fetching gemstones:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load gemstones',
+        severity: 'error',
+      });
     }
   };
 
   const handleSearch = async (e) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-
-    if (value.trim() === '') {
-      fetchGemstones();
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.trim() === '') {
+      setFilteredGemstones(gemstones);
     } else {
       try {
-        const res = await searchGemstones(value);
-        setGemstones(res.data);
+        const res = await searchGemstones(query);
+        setFilteredGemstones(res.data);
+        setPage(0);
       } catch (err) {
-        console.error('Search error:', err);
+        console.error('Error during search:', err);
       }
     }
   };
 
-  const handleDeleteRequest = (gem) => {
-    setDeleteTarget(gem);
-  };
-  
   const handleDeleteConfirm = async () => {
     try {
       await deleteGemstone(deleteTarget.id);
       fetchGemstones();
-      setSnackbarMessage('🗑️ Gemstone deleted successfully!');
-      setSnackbarSeverity('warning');
-      setShowSnackbar(true);
+      setSnackbar({
+        open: true,
+        message: 'Gemstone deleted successfully',
+        severity: 'success',
+      });
     } catch (err) {
-      setSnackbarMessage('❌ Failed to delete gemstone!');
-      setSnackbarSeverity('error');
-      setShowSnackbar(true);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete gemstone',
+        severity: 'error',
+      });
     } finally {
       setDeleteTarget(null);
     }
   };
-  
 
-  const handleAddGemstoneSuccess = () => {
+  const handleAddSuccess = () => {
     fetchGemstones();
     setShowAddForm(false);
-    setSnackbarMessage('Gemstone added successfully!');
-    setSnackbarSeverity('success');
-    setShowSnackbar(true);
+    setSnackbar({
+      open: true,
+      message: 'Gemstone added successfully',
+      severity: 'success',
+    });
   };
+
+  const handleSellSuccess = () => {
+    setSelectedGem(null);
+    fetchGemstones();
+    setSnackbar({
+      open: true,
+      message: 'Gemstone sold successfully',
+      severity: 'success',
+    });
+  };
+
+  const paginatedData = filteredGemstones.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   useEffect(() => {
     fetchGemstones();
@@ -111,188 +156,390 @@ const GemstoneTable = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={8}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Gemstone Inventory
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Manage your gemstone stock and transactions
+        </Typography>
+      </Box>
+
+      <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={8} md={9}>
           <TextField
             fullWidth
-            label="Search"
+            placeholder="Search gemstones..."
             variant="outlined"
             size="small"
             value={searchQuery}
             onChange={handleSearch}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search color="action" />
+                </InputAdornment>
+              ),
+              sx: {
+                backgroundColor: 'background.paper',
+                borderRadius: 2
+              }
+            }}
           />
         </Grid>
-        <Grid item xs={12} sm={4} textAlign={{ xs: 'center', sm: 'right' }}>
+        <Grid item xs={12} sm={4} md={3} textAlign={{ xs: 'center', sm: 'right' }}>
           <Button
             variant="contained"
             color="primary"
+            fullWidth={isMobile}
+            startIcon={<Add />}
             onClick={() => setShowAddForm(true)}
+            sx={{
+              borderRadius: 2,
+              py: 1,
+              textTransform: 'none',
+              boxShadow: 'none',
+              '&:hover': {
+                boxShadow: 'none'
+              }
+            }}
           >
-            ➕ Add Gemstone
+            Add Gemstone
           </Button>
         </Grid>
       </Grid>
 
-      <Typography variant="h5" gutterBottom>
-        Gemstone Stock
-      </Typography>
-
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Code</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Weight</TableCell>
-              <TableCell>Price/Carat</TableCell>
-              <TableCell>Total Price</TableCell>
-              <TableCell>Image</TableCell>
-              <TableCell>Remark</TableCell>
-              <TableCell align="center">Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {gemstones.map((gem) => (
-              <TableRow key={gem.id}>
-                <TableCell>{gem.code}</TableCell>
-                <TableCell>{gem.quantity}</TableCell>
-                <TableCell>{gem.name}</TableCell>
-                <TableCell>{gem.weight}</TableCell>
-                <TableCell>{gem.price_per_carat}</TableCell>
-                <TableCell>{gem.total_price}</TableCell>
-                <TableCell>
-                  {gem.image_url && (
-                    <img
+      {isMobile ? (
+        <Grid container spacing={2}>
+          {paginatedData.map((gem) => (
+            <Grid item xs={12} key={gem.id}>
+              <Card
+                sx={{
+                  borderRadius: 3,
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
+                  {gem.image_url ? (
+                    <Avatar
                       src={`http://localhost:5000/uploads/${gem.image_url}`}
                       alt={gem.name}
-                      width="60"
-                      style={{ borderRadius: '4px' }}
+                      sx={{ width: 80, height: 80, borderRadius: 2 }}
+                      variant="rounded"
                     />
+                  ) : (
+                    <Avatar
+                      sx={{ width: 80, height: 80, borderRadius: 2, bgcolor: 'grey.200' }}
+                      variant="rounded"
+                    >
+                      <ImageIcon sx={{ color: 'grey.500' }} />
+                    </Avatar>
                   )}
-                </TableCell>
-                <TableCell>{gem.remark}</TableCell>
-                <TableCell align="center">
-                  <Box display="flex" justifyContent="center" gap={1} flexWrap="wrap">
-                    <IconButton color="primary" size="small" onClick={() => setEditingGemstone(gem)}>
+
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="subtitle1" fontWeight={600} noWrap>
+                        {gem.name}
+                      </Typography>
+                      <Chip 
+                        label={`$${gem.total_price}`}
+                        color="primary"
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                      />
+                    </Box>
+
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Code: {gem.code}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                      <Chip
+                        icon={<Inventory fontSize="small" />}
+                        label={`${gem.quantity} pcs`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        icon={<Scale fontSize="small" />}
+                        label={`${gem.weight} ct`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        icon={<AttachMoney fontSize="small" />}
+                        label={`${gem.price_per_carat}/ct`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+
+                    {gem.remark && (
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          mt: 1,
+                          fontStyle: 'italic',
+                          color: 'text.secondary',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <Description fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                        {gem.remark}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+
+                <Divider />
+
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-around',
+                  p: 1,
+                  bgcolor: 'action.hover'
+                }}>
+                  <Tooltip title="Edit">
+                    <IconButton 
+                      color="primary" 
+                      onClick={() => setEditingGemstone(gem)}
+                      size="small"
+                    >
                       <Edit />
                     </IconButton>
-                    <IconButton color="error" size="small" onClick={() => handleDeleteRequest(gem)}>
+                  </Tooltip>
+                  <Tooltip title="Delete">
+                    <IconButton 
+                      color="error" 
+                      onClick={() => setDeleteTarget(gem)}
+                      size="small"
+                    >
                       <Delete />
                     </IconButton>
-                    <IconButton color="success" size="small" onClick={() => setSelectedGem(gem)}>
+                  </Tooltip>
+                  <Tooltip title="Sell">
+                    <IconButton 
+                      color="success" 
+                      onClick={() => setSelectedGem(gem)}
+                      size="small"
+                    >
                       <Sell />
                     </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  </Tooltip>
+                </Box>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 'none' }}>
+          <TableContainer>
+            <Table>
+              <TableHead sx={{ bgcolor: 'background.default' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Image</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">Qty</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">Weight</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">Price/Carat</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">Total</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Remark</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedData.map((gem) => (
+                  <TableRow 
+                    key={gem.id}
+                    hover
+                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  >
+                    <TableCell>
+                      {gem.image_url ? (
+                        <Avatar
+                          src={`http://localhost:5000/uploads/${gem.image_url}`}
+                          alt={gem.name}
+                          sx={{ width: 50, height: 50 }}
+                        />
+                      ) : (
+                        <Avatar sx={{ bgcolor: 'grey.200' }}>
+                          <ImageIcon color="disabled" />
+                        </Avatar>
+                      )}
+                    </TableCell>
+                    <TableCell>{gem.code}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{gem.name}</TableCell>
+                    <TableCell align="right">{gem.quantity}</TableCell>
+                    <TableCell align="right">{gem.weight} ct</TableCell>
+                    <TableCell align="right">${gem.price_per_carat}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>
+                      ${gem.total_price}
+                    </TableCell>
+                    <TableCell>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {gem.remark}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box display="flex" justifyContent="center" gap={1}>
+                        <Tooltip title="Edit">
+                          <IconButton 
+                            color="primary" 
+                            size="small" 
+                            onClick={() => setEditingGemstone(gem)}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton 
+                            color="error" 
+                            size="small" 
+                            onClick={() => setDeleteTarget(gem)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Sell">
+                          <IconButton 
+                            color="success" 
+                            size="small" 
+                            onClick={() => setSelectedGem(gem)}
+                          >
+                            <Sell fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredGemstones.length}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            sx={{ borderTop: '1px solid', borderColor: 'divider' }}
+          />
+        </Paper>
+      )}
 
-      {/* Add Dialog */}
-      <Dialog open={showAddForm} onClose={() => setShowAddForm(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add New Gemstone</DialogTitle>
-        <DialogContent>
+      {/* Dialogs */}
+      <Dialog 
+        open={showAddForm} 
+        onClose={() => setShowAddForm(false)} 
+        fullScreen={isMobile}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 600 }}>Add New Gemstone</DialogTitle>
+        <DialogContent dividers>
           <AddGemstoneForm
             onClose={() => setShowAddForm(false)}
-            onAdded={handleAddGemstoneSuccess}
-            setSnackbarMessage={setSnackbarMessage}
-            setSnackbarSeverity={setSnackbarSeverity}
-            setShowSnackbar={setShowSnackbar}
+            onAdded={handleAddSuccess}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog
-        open={Boolean(editingGemstone)}
-        onClose={() => setEditingGemstone(null)}
-        fullWidth
+      <Dialog 
+        open={Boolean(editingGemstone)} 
+        onClose={() => setEditingGemstone(null)} 
+        fullScreen={isMobile}
         maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle>Edit Gemstone</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ fontWeight: 600 }}>Edit Gemstone</DialogTitle>
+        <DialogContent dividers>
           {editingGemstone && (
             <EditGemstoneForm
               gemstone={editingGemstone}
               onClose={() => setEditingGemstone(null)}
               onUpdated={fetchGemstones}
-              setSnackbarMessage={setSnackbarMessage}
-              setSnackbarSeverity={setSnackbarSeverity}
-              setShowSnackbar={setShowSnackbar}
             />
-          
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Sell Dialog */}
-      <Dialog
-        open={Boolean(selectedGem)}
-        onClose={() => setSelectedGem(null)}
-        fullWidth
+      <Dialog 
+        open={Boolean(selectedGem)} 
+        onClose={() => setSelectedGem(null)} 
+        fullScreen={isMobile}
         maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle>Sell Gemstone</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ fontWeight: 600 }}>Sell Gemstone</DialogTitle>
+        <DialogContent dividers>
           {selectedGem && (
             <SellGemstoneForm
               gemstone={selectedGem}
               onClose={() => setSelectedGem(null)}
-              onSold={() => {
-                setSelectedGem(null);
-                fetchGemstones();
-              }}
-              setSnackbarMessage={setSnackbarMessage}
-              setSnackbarSeverity={setSnackbarSeverity}
-              setShowSnackbar={setShowSnackbar}
+              onSold={handleSellSuccess}
             />
           )}
         </DialogContent>
       </Dialog>
 
-
-      {/* Delete Dialog */}
       <DeleteConfirmDialog
         open={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
+        itemName={deleteTarget?.name}
         itemCode={deleteTarget?.code}
       />
 
-
-      {/* Snackbar */}
       <Snackbar
-        open={showSnackbar}
-        autoHideDuration={3000}
-        onClose={() => setShowSnackbar(false)}
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         TransitionComponent={TransitionUp}
       >
         <Alert
-          onClose={() => setShowSnackbar(false)}
-          severity={snackbarSeverity}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
           variant="filled"
           sx={{
             borderRadius: 2,
             boxShadow: 3,
             fontWeight: 500,
-            letterSpacing: '0.3px',
-            px: 2,
-            backgroundColor:
-              snackbarSeverity === 'error'
-                ? '#e74c3c'
-                : snackbarSeverity === 'warning'
-                ? '#f39c12'
-                : snackbarSeverity === 'success'
-                ? '#2ecc71'
-                : undefined,
-            color: '#fff',
+            minWidth: 300,
+            alignItems: 'center'
+          }}
+          iconMapping={{
+            success: <span style={{ fontSize: '1.5rem' }}>✓</span>,
+            error: <span style={{ fontSize: '1.5rem' }}>✕</span>,
+            warning: <span style={{ fontSize: '1.5rem' }}>⚠</span>,
+            info: <span style={{ fontSize: '1.5rem' }}>i</span>
           }}
         >
-          {snackbarMessage}
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </Box>
