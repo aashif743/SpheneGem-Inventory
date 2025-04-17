@@ -64,7 +64,7 @@ const SellGemstoneForm = ({
     e.preventDefault();
 
     try {
-      const response = await axios.post('http://localhost:5000/api/gemstones/sell', {
+      const response = await axios.post('https://sphenegem-inventory.onrender.com/api/gemstones/sell', {
         gemstone_id: gemstone.id,
         code: gemstone.code,
         name: gemstone.name,
@@ -86,7 +86,7 @@ const SellGemstoneForm = ({
       if (response.data.invoice) {
         const invoiceFile = response.data.invoice;
         const link = document.createElement('a');
-        link.href = `http://localhost:5000/invoices/${invoiceFile}`;
+        link.href = `https://sphenegem-inventory.onrender.com/invoices/${invoiceFile}`;
         link.download = invoiceFile;
         document.body.appendChild(link);
         link.click();

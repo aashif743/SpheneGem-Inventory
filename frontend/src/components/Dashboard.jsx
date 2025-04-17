@@ -48,7 +48,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/dashboard/stats');
+        const response = await axios.get('https://sphenegem-inventory.onrender.com/api/dashboard/stats');
         setStats({
           totalGemstones: response.data.totalGemstones,
           totalCarat: response.data.totalCarat,

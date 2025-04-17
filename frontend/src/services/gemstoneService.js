@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/gemstones';
+const API_URL = 'https://sphenegem-inventory.onrender.com/api/gemstones';
 
 export const addGemstone = async (formData) => {
   return await axios.post(`${API_URL}/add`, formData, {

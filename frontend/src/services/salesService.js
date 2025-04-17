@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api/sales';
+const API_BASE_URL = 'https://sphenegem-inventory.onrender.com/api/sales';
 
 export const deleteSale = (id) => {
   return axios.delete(`${API_BASE_URL}/${id}`);

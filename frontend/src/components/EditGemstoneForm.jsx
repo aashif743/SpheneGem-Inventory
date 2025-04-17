@@ -36,7 +36,7 @@ const EditGemstoneForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`http://localhost:5000/api/gemstones/${form.id}`, form);
+      await axios.put(`https://sphenegem-inventory.onrender.com/api/gemstones/${form.id}`, form);
       onUpdated();
       onClose();
 

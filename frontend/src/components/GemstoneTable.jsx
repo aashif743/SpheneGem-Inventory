@@ -226,7 +226,7 @@ const GemstoneTable = () => {
                 <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
                   {gem.image_url ? (
                     <Avatar
-                      src={`http://localhost:5000/uploads/${gem.image_url}`}
+                      src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
                       alt={gem.name}
                       sx={{ width: 80, height: 80, borderRadius: 2 }}
                       variant="rounded"

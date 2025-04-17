@@ -8,22 +8,26 @@ const gemstoneRoutes = require('./routes/gemstoneRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
-app.use(cors());
+
+// ✅ CORS fix
+app.use(cors({
+  origin: 'https://lightcoral-otter-280862.hostingersite.com',
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Static route for serving PDF invoices
+// Serve invoices
 app.use('/invoices', express.static(path.join(__dirname, 'invoices')));
 
-// Routes
+// API Routes
 app.use('/api/gemstones', gemstoneRoutes);
 app.use('/api/sales', salesRoutes);
-
 app.use('/api/dashboard', dashboardRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-

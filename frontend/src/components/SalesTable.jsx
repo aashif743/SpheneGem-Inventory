@@ -65,7 +65,7 @@ const SalesTable = () => {
   };
 
   const handleDownload = (saleId) => {
-    const url = `http://localhost:5000/invoices/invoice_${saleId}.pdf`;
+    const url = `https://sphenegem-inventory.onrender.com/invoices/invoice_${saleId}.pdf`;
     const link = document.createElement('a');
     link.href = url;
     link.download = `invoice-${saleId}.pdf`;
