@@ -6,6 +6,7 @@ const db = require('./models/db');
 const salesRoutes = require('./routes/salesRoutes');
 const gemstoneRoutes = require('./routes/gemstoneRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
 
 const app = express();
 
@@ -28,6 +29,9 @@ app.use('/invoices', express.static(path.join(__dirname, 'invoices')));
 app.use('/api/gemstones', gemstoneRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+app.use('/invoices', invoiceRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

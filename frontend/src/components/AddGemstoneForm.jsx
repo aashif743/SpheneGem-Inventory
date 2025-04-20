@@ -23,6 +23,7 @@ const AddGemstoneForm = ({
     weight: '',
     price_per_carat: '',
     total_price: '',
+    shape: '',
     remark: '',
     image: null,
   });
@@ -70,6 +71,7 @@ const AddGemstoneForm = ({
         weight: '',
         price_per_carat: '',
         total_price: '',
+        shape: '',
         remark: '',
         image: null,
       });
@@ -118,6 +120,15 @@ const AddGemstoneForm = ({
               onChange={handleChange}
             />
           </Grid>
+          <Grid item xs={12}>
+            <TextField
+              name="shape"
+              label="Shape"
+              fullWidth
+              value={form.shape}
+              onChange={handleChange}
+            />
+            </Grid>
           <Grid item xs={12} sm={6}>
             <TextField
               name="weight"

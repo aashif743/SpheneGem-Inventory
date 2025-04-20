@@ -16,6 +16,7 @@ const generateInvoicePDF = (sale, callback) => {
 
   doc.fontSize(12).text(`Gemstone Code: ${sale.code}`);
   doc.text(`Name: ${sale.name}`);
+  doc.text(`Shape: ${sale.shape}`);
   doc.text(`Quantity: ${sale.quantity}`);
   doc.text(`Weight (Carat): ${sale.carat_sold}`);
   doc.text(`Price/Carat: ${sale.selling_price}`);
@@ -30,7 +31,7 @@ const generateInvoicePDF = (sale, callback) => {
 // Add Gemstone
 const addGemstone = async (req, res) => {
   try {
-    const { code, quantity, name, weight, price_per_carat, total_price, remark } = req.body;
+    const { code, quantity, name, weight, price_per_carat, total_price, remark, shape } = req.body;
     const image = req.file ? req.file.filename : null;
 
     if (!code || !weight || !price_per_carat || !total_price) {
@@ -38,11 +39,11 @@ const addGemstone = async (req, res) => {
     }
 
     const query = `
-      INSERT INTO gemstones (code, quantity, name, weight, price_per_carat, total_price, image_url, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO gemstones (code, quantity, name, weight, price_per_carat, total_price, image_url, remark, shape)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await db.execute(query, [code, quantity, name, weight, price_per_carat, total_price, image, remark]);
+    await db.execute(query, [code, quantity, name, weight, price_per_carat, total_price, image, remark, shape]);
     res.status(201).json({ message: 'Gemstone added successfully' });
 
   } catch (err) {
@@ -84,8 +85,8 @@ const sellGemstone = async (req, res) => {
     const remainingQuantity = parseInt(gem.quantity) - parseInt(quantity);
 
     const insertSaleQuery = `
-      INSERT INTO sales (gemstone_id, code, quantity, name, carat_sold, marking_price, selling_price, total_amount, image_url, remark)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sales (gemstone_id, code, quantity, name, shape, carat_sold, marking_price, selling_price, total_amount, image_url, remark)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [saleResult] = await db.execute(insertSaleQuery, [
@@ -93,6 +94,7 @@ const sellGemstone = async (req, res) => {
       gem.code ?? null,
       quantity ?? null,
       gem.name ?? null,
+      gem.shape ?? null,
       carat_sold ?? null,
       gem.price_per_carat ?? null,
       selling_price ?? null,
@@ -107,6 +109,7 @@ const sellGemstone = async (req, res) => {
       saleId,
       code: gem.code,
       name: gem.name,
+      shape: gem.shape,
       quantity,
       carat_sold,
       selling_price,
@@ -138,15 +141,15 @@ const sellGemstone = async (req, res) => {
 const updateGemstone = async (req, res) => {
   try {
     const { id } = req.params;
-    const { code, quantity, weight, price_per_carat, total_price, remark } = req.body;
+    const { code, quantity, weight, price_per_carat, total_price, remark, shape } = req.body;
 
     const query = `
       UPDATE gemstones
-      SET code = ?, quantity = ?, weight = ?, price_per_carat = ?, total_price = ?, remark = ?
+      SET code = ?, quantity = ?, weight = ?, price_per_carat = ?, total_price = ?, remark = ?, shape = ?
       WHERE id = ?
     `;
 
-    await db.execute(query, [code, quantity, weight, price_per_carat, total_price, remark, id]);
+    await db.execute(query, [code, quantity, weight, price_per_carat, total_price, remark, shape, id]);
     res.status(200).json({ message: 'Gemstone updated successfully' });
 
   } catch (err) {
@@ -167,6 +170,7 @@ const deleteGemstone = async (req, res) => {
   }
 };
 
+// Search Gemstones
 const searchGemstones = async (req, res) => {
   const { query } = req.query;
 
@@ -175,8 +179,9 @@ const searchGemstones = async (req, res) => {
       `SELECT * FROM gemstones 
        WHERE weight LIKE ? 
        OR name LIKE ? 
-       OR code LIKE ?`,
-      [`%${query}%`, `%${query}%`, `%${query}%`]
+       OR code LIKE ?
+       OR shape LIKE ?`,
+      [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]
     );
 
     res.json(rows);
@@ -186,8 +191,6 @@ const searchGemstones = async (req, res) => {
   }
 };
 
-
-// Export all functions
 module.exports = {
   addGemstone,
   getAllGemstones,

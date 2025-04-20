@@ -50,6 +50,7 @@ import SellGemstoneForm from './SellGemstoneForm';
 import EditGemstoneForm from './EditGemstoneForm';
 import AddGemstoneForm from './AddGemstoneForm';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
+import DiamondIcon from '@mui/icons-material/Diamond';
 
 const TransitionUp = (props) => <Slide {...props} direction="up" />;
 
@@ -210,134 +211,168 @@ const GemstoneTable = () => {
       </Grid>
 
       {isMobile ? (
-        <Grid container spacing={2}>
-          {paginatedData.map((gem) => (
-            <Grid item xs={12} key={gem.id}>
-              <Card
-                sx={{
-                  borderRadius: 3,
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                  transition: 'transform 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-              >
-                <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
-                  {gem.image_url ? (
-                    <Avatar
-                      src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
-                      alt={gem.name}
-                      sx={{ width: 80, height: 80, borderRadius: 2 }}
-                      variant="rounded"
-                    />
-                  ) : (
-                    <Avatar
-                      sx={{ width: 80, height: 80, borderRadius: 2, bgcolor: 'grey.200' }}
-                      variant="rounded"
-                    >
-                      <ImageIcon sx={{ color: 'grey.500' }} />
-                    </Avatar>
-                  )}
-
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="subtitle1" fontWeight={600} noWrap>
-                        {gem.name}
-                      </Typography>
-                      <Chip 
-                        label={`$${gem.total_price}`}
-                        color="primary"
-                        size="small"
-                        sx={{ fontWeight: 600 }}
+        <>
+          <Grid container spacing={2}>
+            {paginatedData.map((gem) => (
+              <Grid item xs={12} key={gem.id}>
+                <Card
+                  sx={{
+                    borderRadius: 3,
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
+                    {gem.image_url ? (
+                      <Avatar
+                        src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
+                        alt={gem.name}
+                        sx={{ width: 80, height: 80, borderRadius: 2 }}
+                        variant="rounded"
                       />
-                    </Box>
-
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Code: {gem.code}
-                    </Typography>
-
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                      <Chip
-                        icon={<Inventory fontSize="small" />}
-                        label={`${gem.quantity} pcs`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip
-                        icon={<Scale fontSize="small" />}
-                        label={`${gem.weight} ct`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip
-                        icon={<AttachMoney fontSize="small" />}
-                        label={`${gem.price_per_carat}/ct`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-
-                    {gem.remark && (
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          mt: 1,
-                          fontStyle: 'italic',
-                          color: 'text.secondary',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden'
-                        }}
+                    ) : (
+                      <Avatar
+                        sx={{ width: 80, height: 80, borderRadius: 2, bgcolor: 'grey.200' }}
+                        variant="rounded"
                       >
-                        <Description fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                        {gem.remark}
-                      </Typography>
+                        <ImageIcon sx={{ color: 'grey.500' }} />
+                      </Avatar>
                     )}
+
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="subtitle1" fontWeight={600} noWrap>
+                          {gem.name}
+                        </Typography>
+                        <Chip 
+                          label={`$${gem.total_price}`}
+                          color="primary"
+                          size="small"
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </Box>
+
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Code: {gem.code}
+                      </Typography>
+
+                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                        <Chip
+                          icon={<Inventory fontSize="small" />}
+                          label={`${gem.quantity} pcs`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          icon={<DiamondIcon fontSize="small" />}
+                          label={`Shape: ${gem.shape}`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          icon={<Scale fontSize="small" />}
+                          label={`${gem.weight} ct`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip
+                          icon={<AttachMoney fontSize="small" />}
+                          label={`${gem.price_per_carat}/ct`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Box>
+
+                      {gem.remark && (
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            mt: 1,
+                            fontStyle: 'italic',
+                            color: 'text.secondary',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <Description fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                          {gem.remark}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
-                </Box>
 
-                <Divider />
+                  <Divider />
 
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-around',
-                  p: 1,
-                  bgcolor: 'action.hover'
-                }}>
-                  <Tooltip title="Edit">
-                    <IconButton 
-                      color="primary" 
-                      onClick={() => setEditingGemstone(gem)}
-                      size="small"
-                    >
-                      <Edit />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton 
-                      color="error" 
-                      onClick={() => setDeleteTarget(gem)}
-                      size="small"
-                    >
-                      <Delete />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Sell">
-                    <IconButton 
-                      color="success" 
-                      onClick={() => setSelectedGem(gem)}
-                      size="small"
-                    >
-                      <Sell />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-around',
+                    p: 1,
+                    bgcolor: 'action.hover'
+                  }}>
+                    <Tooltip title="Edit">
+                      <IconButton 
+                        color="primary" 
+                        onClick={() => setEditingGemstone(gem)}
+                        size="small"
+                      >
+                        <Edit />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton 
+                        color="error" 
+                        onClick={() => setDeleteTarget(gem)}
+                        size="small"
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Sell">
+                      <IconButton 
+                        color="success" 
+                        onClick={() => setSelectedGem(gem)}
+                        size="small"
+                      >
+                        <Sell />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          
+          {/* Mobile Pagination */}
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, justifyContent: 'center', mt: 2 }}>
+            <TablePagination
+              component="div"
+              count={filteredGemstones.length}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[5, 10, 25]}
+              sx={{
+                '& .MuiTablePagination-toolbar': {
+                  padding: 0,
+                  flexWrap: 'wrap',
+                  justifyContent: 'center'
+                },
+                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                  marginBottom: 1
+                }
+              }}
+            />
+          </Box>
+        </>
       ) : (
         <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 'none' }}>
           <TableContainer>
@@ -348,6 +383,7 @@ const GemstoneTable = () => {
                   <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 600 }} align="right">Qty</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Shape</TableCell>
                   <TableCell sx={{ fontWeight: 600 }} align="right">Weight</TableCell>
                   <TableCell sx={{ fontWeight: 600 }} align="right">Price/Carat</TableCell>
                   <TableCell sx={{ fontWeight: 600 }} align="right">Total</TableCell>
@@ -365,7 +401,7 @@ const GemstoneTable = () => {
                     <TableCell>
                       {gem.image_url ? (
                         <Avatar
-                          src={`http://localhost:5000/uploads/${gem.image_url}`}
+                          src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
                           alt={gem.name}
                           sx={{ width: 50, height: 50 }}
                         />
@@ -378,6 +414,7 @@ const GemstoneTable = () => {
                     <TableCell>{gem.code}</TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>{gem.name}</TableCell>
                     <TableCell align="right">{gem.quantity}</TableCell>
+                    <TableCell>{gem.shape}</TableCell>
                     <TableCell align="right">{gem.weight} ct</TableCell>
                     <TableCell align="right">${gem.price_per_carat}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>
