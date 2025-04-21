@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
@@ -26,10 +27,12 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FDB', '#FF6384'];
 
+axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
+
 const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   const [stats, setStats] = useState({
     totalGemstones: 0,
     totalCarat: 0,
@@ -44,34 +47,56 @@ const Dashboard = () => {
   });
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        const response = await axios.get('https://sphenegem-inventory.onrender.com/api/dashboard/stats');
-        setStats({
-          totalGemstones: response.data.totalGemstones,
-          totalCarat: response.data.totalCarat,
-          totalSales: response.data.totalSales,
-          totalRevenue: response.data.totalRevenue,
-        });
-        setChartData({
-          monthlyGemstones: response.data.monthlyGemstones,
-          revenueByGemstone: response.data.revenueByGemstone,
-          salesData: response.data.monthlyGemstones.map(item => ({
-            day: item.month,
-            value: item.count
-          }))
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardStats();
+    // Wake up the Render server before fetching
+    axios.get("https://sphenegem-inventory.onrender.com")
+      .catch(err => console.log("Warming up server..."))
+      .finally(() => fetchDashboardStats());
   }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await axios.get(
+        'https://sphenegem-inventory.onrender.com/api/dashboard/stats',
+        { timeout: 60000 }
+      );
+
+      setStats({
+        totalGemstones: response.data.totalGemstones,
+        totalCarat: response.data.totalCarat,
+        totalSales: response.data.totalSales,
+        totalRevenue: response.data.totalRevenue,
+      });
+
+      setChartData({
+        monthlyGemstones: response.data.monthlyGemstones,
+        revenueByGemstone: response.data.revenueByGemstone,
+        salesData: response.data.monthlyGemstones.map(item => ({
+          day: item.month,
+          value: item.count
+        }))
+      });
+
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+
+      if (err.code === 'ECONNABORTED') {
+        alert("The request timed out. Server might be sleeping. Please try again in a moment.");
+      } else if (err.response) {
+        alert(`Server responded with error: ${err.response.status} - ${err.response.statusText}`);
+      } else if (err.request) {
+        alert("No response from server. Please check your internet or server status.");
+      } else {
+        alert("An unexpected error occurred while loading the dashboard.");
+      }
+
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const StatCard = ({ title, value, icon }) => (
     <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
@@ -98,43 +123,31 @@ const Dashboard = () => {
       <Typography variant="h5" fontWeight={600} gutterBottom>
         Dashboard Overview
       </Typography>
-      <Typography variant="body2" color="text.secondary" mb={3}>
+      <Typography variant="body2" color="text.secondary" mb={2}>
         Key metrics and analytics at a glance
       </Typography>
 
-      {/* Stat Cards */}
+      {error && (
+        <Typography variant="body2" color="error" mb={2}>
+          Failed to load dashboard data. Please try again later.
+        </Typography>
+      )}
+
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="Total Gemstones" 
-            value={stats.totalGemstones} 
-            icon={<DiamondIcon color="primary" />}
-          />
+          <StatCard title="Total Gemstones" value={stats.totalGemstones} icon={<DiamondIcon color="primary" />} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="Total Carat" 
-            value={stats.totalCarat} 
-            icon={<ScaleIcon color="secondary" />}
-          />
+          <StatCard title="Total Carat" value={stats.totalCarat} icon={<ScaleIcon color="secondary" />} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="Total Sales" 
-            value={stats.totalSales} 
-            icon={<TrendingIcon color="success" />}
-          />
+          <StatCard title="Total Sales" value={stats.totalSales} icon={<TrendingIcon color="success" />} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard 
-            title="Total Revenue" 
-            value={`$${stats.totalRevenue.toLocaleString()}`} 
-            icon={<MoneyIcon color="warning" />}
-          />
+          <StatCard title="Total Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} icon={<MoneyIcon color="warning" />} />
         </Grid>
       </Grid>
 
-      {/* Market & Sales Overview */}
       <Grid container spacing={2} mb={3}>
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
@@ -160,6 +173,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
+
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
             <CardContent>
@@ -186,7 +200,6 @@ const Dashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Bottom Charts */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>
           <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
@@ -213,6 +226,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Grid>
+
         <Grid item xs={12} md={4}>
           <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 1 }}>
             <CardContent>
