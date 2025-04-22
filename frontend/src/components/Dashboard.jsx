@@ -50,10 +50,20 @@ const Dashboard = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Wake up the Render server before fetching
-    axios.get("https://sphenegem-inventory.onrender.com")
-      .catch(err => console.log("Warming up server..."))
-      .finally(() => fetchDashboardStats());
+    const warmUpServer = async () => {
+      try {
+        await axios.get("https://sphenegem-inventory.onrender.com");
+        console.log("Server warming up...");
+        setTimeout(() => {
+          fetchDashboardStats();
+        }, 3000);
+      } catch (error) {
+        console.log("Warm-up failed or already awake. Fetching anyway...");
+        fetchDashboardStats();
+      }
+    };
+
+    warmUpServer();
   }, []);
 
   const fetchDashboardStats = async () => {
