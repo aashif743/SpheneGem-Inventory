@@ -14,7 +14,7 @@ const app = express();
 
 // ✅ CORS fix
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: 'https://lightcoral-otter-280862.hostingersite.com',
   credentials: true,
 }));
 
