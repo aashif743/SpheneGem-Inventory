@@ -8,7 +8,7 @@ const {
   deleteGemstone,
   searchGemstones,
 } = require('../controllers/gemstoneController');
-const upload = require('../multerConfig');
+const upload = require('../multerCloudinary'); // this uploads to Cloudinary
 
 // Route: Add Gemstone
 router.post('/add', upload.single('image'), addGemstone);

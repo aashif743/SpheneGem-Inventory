@@ -52,7 +52,7 @@ const Dashboard = () => {
   useEffect(() => {
     const warmUpServer = async () => {
       try {
-        await axios.get("https://sphenegem-stock-production.up.railway.app");
+        await axios.get("https://sphenegem-inventory.onrender.com");
         console.log("Server warming up...");
         setTimeout(() => {
           fetchDashboardStats();
@@ -69,7 +69,7 @@ const Dashboard = () => {
   const fetchDashboardStats = async () => {
     try {
       const response = await axios.get(
-        'https://sphenegem-stock-production.up.railway.app/api/dashboard/stats',
+        'https://sphenegem-inventory.onrender.com/api/dashboard/stats',
         { timeout: 60000 }
       );
 

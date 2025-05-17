@@ -228,7 +228,7 @@ const GemstoneTable = () => {
                   <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
                     {gem.image_url ? (
                       <Avatar
-                        src={`https://sphenegem-stock-production.up.railway.app/uploads/${gem.image_url}`}
+                        src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
                         alt={gem.name}
                         sx={{ width: 80, height: 80, borderRadius: 2 }}
                         variant="rounded"
@@ -401,7 +401,7 @@ const GemstoneTable = () => {
                     <TableCell>
                       {gem.image_url ? (
                         <Avatar
-                          src={`https://sphenegem-stock-production.up.railway.app/uploads/${gem.image_url}`}
+                          src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
                           alt={gem.name}
                           sx={{ width: 50, height: 50 }}
                         />

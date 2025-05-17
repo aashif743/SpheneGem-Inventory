@@ -20,7 +20,7 @@ const EditGemstoneForm = ({
 }) => {
   const [form, setForm] = useState({ ...gemstone });
   const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(gemstone.image_url ? `/uploads/${gemstone.image_url}` : null);
+  const [imagePreview, setImagePreview] = useState(gemstone.image_url || null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -69,7 +69,7 @@ const EditGemstoneForm = ({
         formData.append('image', imageFile);
       }
 
-      await axios.put(`https://sphenegem-stock-production.up.railway.app/api/gemstones/${form.id}`, formData, {
+      await axios.put(`https://sphenegem-inventory.onrender.com/api/gemstones/${form.id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -116,10 +116,10 @@ const EditGemstoneForm = ({
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <TextField name="price_per_carat" label="Price per Carat" type="number" fullWidth required value={form.price_per_carat} onChange={handleChange} inputProps={{ step: '0.01' }} />
+            <TextField name="price_per_carat" label="Price per Carat" type="number" fullWidth required value={Number(form.price_per_carat).toFixed(2)} onChange={handleChange} inputProps={{ step: '0.01' }} />
           </Grid>
           <Grid item xs={12}>
-            <TextField name="total_price" label="Total Price" type="number" fullWidth value={form.total_price} InputProps={{ readOnly: true }} />
+            <TextField name="total_price" label="Total Price" type="number" fullWidth value={Number(form.total_price).toFixed(2)} InputProps={{ readOnly: true }} />
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField name="shape" label="Shape" fullWidth required value={form.shape} onChange={handleChange}>
@@ -128,7 +128,7 @@ const EditGemstoneForm = ({
           <Grid item xs={12} sm={6}>
             <Button variant="outlined" component="label" fullWidth>
               Upload Image
-              <input type="file" accept="image/*" hidden onChange={handleImageChange} />
+              <input type="file" accept="image/*" name="image" hidden onChange={handleImageChange} />
             </Button>
           </Grid>
           {imagePreview && (

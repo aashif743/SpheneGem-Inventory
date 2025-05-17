@@ -169,6 +169,7 @@ const AddGemstoneForm = ({
             >
               Upload Image
               <input
+                name="image"
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"

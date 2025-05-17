@@ -76,7 +76,7 @@ const SalesTable = () => {
   };
 
   const handleDownload = (saleId) => {
-    const url = `https://sphenegem-stock-production.up.railway.app/invoices/invoice_${saleId}.pdf`;
+    const url = `https://sphenegem-inventory.onrender.com/invoices/invoice_${saleId}.pdf`;
   
     // Trigger file download
     const downloadLink = document.createElement('a');
@@ -167,7 +167,7 @@ const SalesTable = () => {
   };
 
   const handleStatementDownload = async () => {
-    const url = `https://sphenegem-stock-production.up.railway.app/invoices/statement?range=${filterRange}`;
+    const url = `https://sphenegem-inventory.onrender.com/invoices/statement?range=${filterRange}`;
     const link = document.createElement('a');
     link.href = url;
     link.download = `sales_statement_${filterRange}.pdf`;

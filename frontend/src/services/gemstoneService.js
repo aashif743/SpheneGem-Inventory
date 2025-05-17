@@ -1,12 +1,12 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
-const API_URL = "https://sphenegem-stock-production.up.railway.app/api/gemstones";
+const API_URL = "https://sphenegem-inventory.onrender.com/api/gemstones";
 
 // Setup retry logic for axios
 axiosRetry(axios, { 
   retries: 3,
-  retryDelay: axiosRetry.exponentialDelay 
+  retryDelay: axiosRetry.exponentialDelay  
 });
 
 // Default axios config
@@ -32,7 +32,12 @@ export const deleteGemstone = async (id) => {
 };
 
 export const updateGemstone = async (id, data) => {
-  return await axios.put(`${API_URL}/${id}`, data, axiosConfig);
+  return await axios.put(`${API_URL}/${id}`, data, {
+    ...axiosConfig,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };
 
 export const searchGemstones = async (query) => {

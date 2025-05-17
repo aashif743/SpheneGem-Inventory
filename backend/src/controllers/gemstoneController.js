@@ -32,7 +32,7 @@ const generateInvoicePDF = (sale, callback) => {
 const addGemstone = async (req, res) => {
   try {
     const { code, quantity, name, weight, price_per_carat, total_price, remark, shape } = req.body;
-    const image = req.file ? req.file.filename : null;
+    const image = req.file ? req.file.path : null;
 
     if (!code || !weight || !price_per_carat || !total_price) {
       return res.status(400).json({ message: 'Required fields are missing' });
@@ -159,16 +159,9 @@ const updateGemstone = async (req, res) => {
   try {
     const { id } = req.params;
     const { code, quantity, weight, price_per_carat, total_price, remark, shape } = req.body;
-    const newImage = req.file ? req.file.filename : null;
 
-    // Fetch current image filename from DB
-    let currentImage = null;
-    if (newImage) {
-      const [rows] = await db.execute('SELECT image_url FROM gemstones WHERE id = ?', [id]);
-      if (rows.length > 0) {
-        currentImage = rows[0].image_url;
-      }
-    }
+    // If a new image is uploaded, use its Cloudinary URL
+    const newImage = req.file ? req.file.path : null;
 
     const fields = [code, quantity, weight, price_per_carat, total_price, remark, shape];
     let query = `
@@ -186,15 +179,6 @@ const updateGemstone = async (req, res) => {
 
     await db.execute(query, fields);
 
-    // Delete old image if new one is uploaded
-    if (newImage && currentImage) {
-      const imagePath = path.join(__dirname, '../uploads', currentImage);
-      fs.unlink(imagePath, (err) => {
-        if (err) console.error('❌ Failed to delete old image:', err.message);
-        else console.log('🗑️ Old image deleted:', currentImage);
-      });
-    }
-
     res.status(200).json({ message: 'Gemstone updated successfully' });
 
   } catch (err) {
@@ -202,6 +186,7 @@ const updateGemstone = async (req, res) => {
     res.status(500).json({ message: 'Database error' });
   }
 };
+
 
 
 // Delete Gemstone

@@ -64,7 +64,7 @@ const SellGemstoneForm = ({
     e.preventDefault();
 
     try {
-      const response = await axios.post('https://sphenegem-stock-production.up.railway.app/api/gemstones/sell', {
+      const response = await axios.post('https://sphenegem-inventory.onrender.com/api/gemstones/sell', {
         gemstone_id: gemstone.id,
         code: gemstone.code,
         name: gemstone.name,
@@ -85,7 +85,7 @@ const SellGemstoneForm = ({
       // Open invoice in a new browser tab
       if (response.data.invoice) {
         const invoiceFile = response.data.invoice;
-        const invoiceUrl = `https://sphenegem-stock-production.up.railway.app/invoices/${invoiceFile}`;
+        const invoiceUrl = `https://sphenegem-inventory.onrender.com/invoices/${invoiceFile}`;
         window.open(invoiceUrl, '_blank');
       }
 

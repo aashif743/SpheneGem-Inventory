@@ -13,7 +13,7 @@ const ChangePassword = () => {
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      const res = await axios.post('https://sphenegem-stock-production.up.railway.app/api/auth/change-password', form, {
+      const res = await axios.post('https://sphenegem-inventory.onrender.com/api/auth/change-password', form, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setMessage({ text: res.data.message, severity: 'success' });
