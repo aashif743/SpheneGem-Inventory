@@ -5,8 +5,10 @@ import {
   Grid,
   TextField,
   Typography,
+  MenuItem
 } from '@mui/material';
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 
 const EditGemstoneForm = ({
   gemstone,
@@ -17,6 +19,8 @@ const EditGemstoneForm = ({
   setShowSnackbar,
 }) => {
   const [form, setForm] = useState({ ...gemstone });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(gemstone.image_url ? `/uploads/${gemstone.image_url}` : null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,10 +37,44 @@ const EditGemstoneForm = ({
     setForm(newForm);
   };
 
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+      };
+
+      try {
+        const compressedFile = await imageCompression(file, options);
+        setImageFile(compressedFile);
+        setImagePreview(URL.createObjectURL(compressedFile));
+      } catch (error) {
+        console.error("Image compression error:", error);
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`https://sphenegem-inventory.onrender.com/api/gemstones/${form.id}`, form);
+      const formData = new FormData();
+
+      Object.entries(form).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+
+      if (imageFile) {
+        formData.append('image', imageFile);
+      }
+
+      await axios.put(`https://sphenegem-stock-production.up.railway.app/api/gemstones/${form.id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
       onUpdated();
       onClose();
 
@@ -59,25 +97,10 @@ const EditGemstoneForm = ({
       <Box component="form" onSubmit={handleSubmit}>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
-            <TextField
-              name="code"
-              label="Code"
-              fullWidth
-              required
-              value={form.code}
-              onChange={handleChange}
-            />
+            <TextField name="code" label="Code" fullWidth required value={form.code} onChange={handleChange} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
-              name="quantity"
-              label="Quantity"
-              type="number"
-              fullWidth
-              required
-              value={form.quantity}
-              onChange={handleChange}
-            />
+            <TextField name="quantity" label="Quantity" type="number" fullWidth required value={form.quantity} onChange={handleChange} />
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -86,43 +109,39 @@ const EditGemstoneForm = ({
               type="number"
               fullWidth
               required
-              value={form.weight}
+              value={form.weight ? parseFloat(form.weight).toFixed(2) : ''}
               onChange={handleChange}
               inputProps={{ step: '0.01' }}
             />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <TextField name="price_per_carat" label="Price per Carat" type="number" fullWidth required value={form.price_per_carat} onChange={handleChange} inputProps={{ step: '0.01' }} />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField name="total_price" label="Total Price" type="number" fullWidth value={form.total_price} InputProps={{ readOnly: true }} />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField
-              name="price_per_carat"
-              label="Price per Carat"
-              type="number"
-              fullWidth
-              required
-              value={form.price_per_carat}
-              onChange={handleChange}
-              inputProps={{ step: '0.01' }}
-            />
+            <TextField name="shape" label="Shape" fullWidth required value={form.shape} onChange={handleChange}>
+            </TextField>
           </Grid>
-          <Grid item xs={12}>
-            <TextField
-              name="total_price"
-              label="Total Price"
-              type="number"
-              fullWidth
-              value={form.total_price}
-              InputProps={{ readOnly: true }}
-            />
+          <Grid item xs={12} sm={6}>
+            <Button variant="outlined" component="label" fullWidth>
+              Upload Image
+              <input type="file" accept="image/*" hidden onChange={handleImageChange} />
+            </Button>
           </Grid>
+          {imagePreview && (
+            <Grid item xs={12}>
+              <img
+                src={imagePreview}
+                alt="Preview"
+                style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 4, border: '1px solid #ccc' }}
+              />
+            </Grid>
+          )}
           <Grid item xs={12}>
-            <TextField
-              name="remark"
-              label="Remark"
-              fullWidth
-              multiline
-              minRows={2}
-              value={form.remark}
-              onChange={handleChange}
-            />
+            <TextField name="remark" label="Remark" fullWidth multiline minRows={2} value={form.remark} onChange={handleChange} />
           </Grid>
         </Grid>
 

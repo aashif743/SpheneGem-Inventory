@@ -1,7 +1,7 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
-const API_BASE_URL = "https://sphenegem-inventory.onrender.com/api/sales";
+const API_BASE_URL = "https://sphenegem-stock-production.up.railway.app/api/sales";
 
 // Setup retry logic for axios
 axiosRetry(axios, { 

@@ -64,7 +64,7 @@ const SellGemstoneForm = ({
     e.preventDefault();
 
     try {
-      const response = await axios.post('https://sphenegem-inventory.onrender.com/api/gemstones/sell', {
+      const response = await axios.post('https://sphenegem-stock-production.up.railway.app/api/gemstones/sell', {
         gemstone_id: gemstone.id,
         code: gemstone.code,
         name: gemstone.name,
@@ -82,16 +82,13 @@ const SellGemstoneForm = ({
       setSnackbarSeverity?.('success');
       setShowSnackbar?.(true);
 
-      // Auto-download invoice
+      // Open invoice in a new browser tab
       if (response.data.invoice) {
         const invoiceFile = response.data.invoice;
-        const link = document.createElement('a');
-        link.href = `https://sphenegem-inventory.onrender.com/invoices/${invoiceFile}`;
-        link.download = invoiceFile;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const invoiceUrl = `https://sphenegem-stock-production.up.railway.app/invoices/${invoiceFile}`;
+        window.open(invoiceUrl, '_blank');
       }
+
 
       onSold?.();
       onClose?.();
@@ -109,7 +106,7 @@ const SellGemstoneForm = ({
         💎 Sell Gemstone: {gemstone.code}
       </Typography>
       <Typography variant="body2" sx={{ mb: 2 }}>
-        Available: <strong>{gemstone.weight}</strong> carat
+        Available: <strong>{parseFloat(gemstone.weight).toFixed(2)}</strong> carat
       </Typography>
 
       <Box component="form" onSubmit={handleSell}>

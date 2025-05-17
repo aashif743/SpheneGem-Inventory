@@ -3,16 +3,18 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const db = require('./models/db');
+
 const salesRoutes = require('./routes/salesRoutes');
 const gemstoneRoutes = require('./routes/gemstoneRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
+const authRoutes = require('./routes/authRoutes'); // ✅ <-- Add this line
 
 const app = express();
 
 // ✅ CORS fix
 app.use(cors({
-  origin: 'https://lightcoral-otter-280862.hostingersite.com',
+  origin: 'http://localhost:3000',
   credentials: true,
 }));
 
@@ -29,9 +31,10 @@ app.use('/invoices', express.static(path.join(__dirname, 'invoices')));
 app.use('/api/gemstones', gemstoneRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
 app.use('/invoices', invoiceRoutes);
 
+// ✅ Add auth routes
+app.use('/api/auth', authRoutes); // <-- ✅ This enables /api/auth/login
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

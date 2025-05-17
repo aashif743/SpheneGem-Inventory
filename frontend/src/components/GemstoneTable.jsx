@@ -228,7 +228,7 @@ const GemstoneTable = () => {
                   <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
                     {gem.image_url ? (
                       <Avatar
-                        src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
+                        src={`https://sphenegem-stock-production.up.railway.app/uploads/${gem.image_url}`}
                         alt={gem.name}
                         sx={{ width: 80, height: 80, borderRadius: 2 }}
                         variant="rounded"
@@ -401,7 +401,7 @@ const GemstoneTable = () => {
                     <TableCell>
                       {gem.image_url ? (
                         <Avatar
-                          src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
+                          src={`https://sphenegem-stock-production.up.railway.app/uploads/${gem.image_url}`}
                           alt={gem.name}
                           sx={{ width: 50, height: 50 }}
                         />
@@ -411,15 +411,17 @@ const GemstoneTable = () => {
                         </Avatar>
                       )}
                     </TableCell>
+
                     <TableCell>{gem.code}</TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>{gem.name}</TableCell>
                     <TableCell align="right">{gem.quantity}</TableCell>
                     <TableCell>{gem.shape}</TableCell>
-                    <TableCell align="right">{gem.weight} ct</TableCell>
-                    <TableCell align="right">${gem.price_per_carat}</TableCell>
+                    <TableCell align="right">{parseFloat(gem.weight).toFixed(2)} ct</TableCell>
+                    <TableCell align="right">${parseFloat(gem.price_per_carat).toFixed(2)}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>
-                      ${gem.total_price}
+                      ${parseFloat(gem.total_price).toFixed(2)}
                     </TableCell>
+                    
                     <TableCell>
                       <Typography 
                         variant="body2" 

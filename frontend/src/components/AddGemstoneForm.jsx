@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -8,6 +8,7 @@ import {
   Paper,
 } from '@mui/material';
 import { addGemstone } from '../services/gemstoneService';
+import imageCompression from 'browser-image-compression';
 
 const AddGemstoneForm = ({
   onClose,
@@ -28,7 +29,11 @@ const AddGemstoneForm = ({
     image: null,
   });
 
-  const handleChange = (e) => {
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+  const fieldRefs = useRef([]);
+
+  const handleChange = (e, index) => {
     const { name, value } = e.target;
     let newForm = { ...form, [name]: value };
 
@@ -41,10 +46,36 @@ const AddGemstoneForm = ({
     }
 
     setForm(newForm);
+
+    // If Enter is pressed, move to next input
+    const handleEnter = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (index + 1 < fieldRefs.current.length) {
+          fieldRefs.current[index + 1]?.focus();
+        } else {
+          fileInputRef.current?.click();
+        }
+      }
+    };
+    e.target.onkeydown = handleEnter;
   };
 
-  const handleFileChange = (e) => {
-    setForm({ ...form, image: e.target.files[0] });
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const compressed = await imageCompression(file, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 800,
+          useWebWorker: true,
+        });
+        setForm({ ...form, image: compressed });
+        setImagePreview(URL.createObjectURL(compressed));
+      } catch (err) {
+        console.error('Image compression failed', err);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -75,6 +106,7 @@ const AddGemstoneForm = ({
         remark: '',
         image: null,
       });
+      setImagePreview(null);
     } catch (err) {
       console.error(err);
       setSnackbarMessage?.('Failed to add gemstone');
@@ -83,6 +115,16 @@ const AddGemstoneForm = ({
     }
   };
 
+  const inputFields = [
+    { name: 'code', label: 'Code', required: true },
+    { name: 'quantity', label: 'Quantity', type: 'number', required: true },
+    { name: 'name', label: 'Name (optional)' },
+    { name: 'shape', label: 'Shape' },
+    { name: 'weight', label: 'Weight (Carat)', type: 'number', required: true, step: '0.01' },
+    { name: 'price_per_carat', label: 'Price per Carat', type: 'number', required: true, step: '0.01' },
+    { name: 'remark', label: 'Remark (optional)', multiline: true },
+  ];
+
   return (
     <Paper sx={{ p: { xs: 2, sm: 4 }, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h5" gutterBottom>
@@ -90,69 +132,23 @@ const AddGemstoneForm = ({
       </Typography>
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="code"
-              label="Code"
-              fullWidth
-              required
-              value={form.code}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="quantity"
-              label="Quantity"
-              type="number"
-              fullWidth
-              required
-              value={form.quantity}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              name="name"
-              label="Name (optional)"
-              fullWidth
-              value={form.name}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              name="shape"
-              label="Shape"
-              fullWidth
-              value={form.shape}
-              onChange={handleChange}
-            />
+          {inputFields.map((field, index) => (
+            <Grid item xs={12} sm={field.fullWidth === false ? 6 : 12} key={field.name}>
+              <TextField
+                {...field}
+                fullWidth
+                value={form[field.name]}
+                name={field.name}
+                onChange={(e) => handleChange(e, index)}
+                inputRef={(el) => (fieldRefs.current[index] = el)}
+                type={field.type || 'text'}
+                inputProps={field.step ? { step: field.step } : {}}
+                multiline={field.multiline}
+                minRows={field.multiline ? 2 : undefined}
+              />
             </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="weight"
-              label="Weight (Carat)"
-              type="number"
-              inputProps={{ step: '0.01' }}
-              fullWidth
-              required
-              value={form.weight}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              name="price_per_carat"
-              label="Price per Carat"
-              type="number"
-              inputProps={{ step: '0.01' }}
-              fullWidth
-              required
-              value={form.price_per_carat}
-              onChange={handleChange}
-            />
-          </Grid>
+          ))}
+
           <Grid item xs={12}>
             <TextField
               name="total_price"
@@ -163,28 +159,34 @@ const AddGemstoneForm = ({
               InputProps={{ readOnly: true }}
             />
           </Grid>
+
           <Grid item xs={12}>
-            <TextField
-              name="remark"
-              label="Remark (optional)"
+            <Button
+              variant="outlined"
+              component="label"
+              color="secondary"
               fullWidth
-              multiline
-              minRows={2}
-              value={form.remark}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Button variant="outlined" component="label" color="secondary">
+            >
               Upload Image
-              <input type="file" accept="image/*" hidden onChange={handleFileChange} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handleFileChange}
+              />
             </Button>
-            {form.image && (
-              <Typography variant="caption" sx={{ ml: 2 }}>
-                {form.image.name}
-              </Typography>
+            {imagePreview && (
+              <Box mt={1}>
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  style={{ maxWidth: '100%', maxHeight: 200, border: '1px solid #ccc', borderRadius: 4 }}
+                />
+              </Box>
             )}
           </Grid>
+
           <Grid item xs={12} sm={6}>
             <Button
               onClick={onClose}

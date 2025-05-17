@@ -19,8 +19,8 @@ router.get('/all', getAllGemstones);
 // Route: Sell Gemstone
 router.post('/sell', sellGemstone);
 
-// Route: Update Gemstone
-router.put('/:id', updateGemstone);
+// ✅ Route: Update Gemstone (with image upload support)
+router.put('/:id', upload.single('image'), updateGemstone);
 
 // Route: Delete Gemstone
 router.delete('/:id', deleteGemstone);

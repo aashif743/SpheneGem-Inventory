@@ -76,14 +76,21 @@ const SalesTable = () => {
   };
 
   const handleDownload = (saleId) => {
-    const url = `https://sphenegem-inventory.onrender.com/invoices/invoice_${saleId}.pdf`;
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `invoice-${saleId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const url = `https://sphenegem-stock-production.up.railway.app/invoices/invoice_${saleId}.pdf`;
+  
+    // Trigger file download
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = `invoice-${saleId}.pdf`;
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  
+    // Open in new tab
+    window.open(url, '_blank');
   };
+  
 
   const handleDeleteClick = (saleId) => {
     setSelectedSaleId(saleId);
@@ -160,7 +167,7 @@ const SalesTable = () => {
   };
 
   const handleStatementDownload = async () => {
-    const url = `https://sphenegem-inventory.onrender.com/invoices/statement?range=${filterRange}`;
+    const url = `https://sphenegem-stock-production.up.railway.app/invoices/statement?range=${filterRange}`;
     const link = document.createElement('a');
     link.href = url;
     link.download = `sales_statement_${filterRange}.pdf`;
@@ -613,10 +620,10 @@ const SalesTable = () => {
                       <TableCell sx={{ fontWeight: 500 }}>{sale.name}</TableCell>
                       <TableCell align="right">{sale.quantity}</TableCell>
                       <TableCell>{sale.shape}</TableCell>
-                      <TableCell align="right">{sale.carat_sold} ct</TableCell>
+                      <TableCell align="right">{parseFloat(sale.carat_sold).toFixed(2)} ct</TableCell>
                       <TableCell align="right">${sale.marking_price}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>
-                        ${sale.total_amount}
+                        ${parseFloat(sale.total_amount).toFixed(2)}
                       </TableCell>
                       <TableCell>{new Date(sale.sold_at).toLocaleDateString()}</TableCell>
                       <TableCell align="center">
