@@ -8,7 +8,7 @@ const salesRoutes = require('./routes/salesRoutes');
 const gemstoneRoutes = require('./routes/gemstoneRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
-const authRoutes = require('./routes/authRoutes'); // ✅ <-- Add this line
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
