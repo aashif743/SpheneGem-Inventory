@@ -401,7 +401,7 @@ const GemstoneTable = () => {
                     <TableCell>
                       {gem.image_url ? (
                         <Avatar
-                          src={`https://sphenegem-inventory.onrender.com/uploads/${gem.image_url}`}
+                          src={gem.image_url}
                           alt={gem.name}
                           sx={{ width: 50, height: 50 }}
                         />

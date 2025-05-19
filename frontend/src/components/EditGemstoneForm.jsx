@@ -104,6 +104,16 @@ const EditGemstoneForm = ({
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField
+              name="name"
+              label="Name"
+              fullWidth
+              required
+              value={form.name}
+              onChange={handleChange}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
               name="weight"
               label="Weight (Carat)"
               type="number"
@@ -143,7 +153,7 @@ const EditGemstoneForm = ({
           <Grid item xs={12}>
             <TextField name="remark" label="Remark" fullWidth multiline minRows={2} value={form.remark} onChange={handleChange} />
           </Grid>
-        </Grid>
+        </Grid> 
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
           <Button onClick={onClose} sx={{ mr: 2 }}>
