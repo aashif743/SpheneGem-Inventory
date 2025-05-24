@@ -119,9 +119,9 @@ const AddGemstoneForm = ({
     { name: 'code', label: 'Code', required: true },
     { name: 'quantity', label: 'Quantity', type: 'number', required: true },
     { name: 'name', label: 'Name (optional)' },
-    { name: 'shape', label: 'Shape' },
     { name: 'weight', label: 'Weight (Carat)', type: 'number', required: true, step: '0.01' },
     { name: 'price_per_carat', label: 'Price per Carat', type: 'number', required: true, step: '0.01' },
+    { name: 'shape', label: 'Shape' },
     { name: 'remark', label: 'Remark (optional)', multiline: true },
   ];
 

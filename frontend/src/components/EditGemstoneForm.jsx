@@ -119,15 +119,25 @@ const EditGemstoneForm = ({
               type="number"
               fullWidth
               required
-              value={form.weight ? parseFloat(form.weight).toFixed(2) : ''}
+              value={form.weight ?? ''} // Allow direct typing
               onChange={handleChange}
               inputProps={{ step: '0.01' }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <TextField name="price_per_carat" label="Price per Carat" type="number" fullWidth required value={Number(form.price_per_carat).toFixed(2)} onChange={handleChange} inputProps={{ step: '0.01' }} />
+            <TextField
+              name="price_per_carat"
+              label="Price per Carat"
+              type="number"
+              fullWidth
+              required
+              value={form.price_per_carat ?? ''}
+              onChange={handleChange}
+              inputProps={{ step: '0.01' }}
+            />
           </Grid>
+
           <Grid item xs={12}>
             <TextField name="total_price" label="Total Price" type="number" fullWidth value={Number(form.total_price).toFixed(2)} InputProps={{ readOnly: true }} />
           </Grid>

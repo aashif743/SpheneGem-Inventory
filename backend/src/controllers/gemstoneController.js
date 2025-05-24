@@ -158,7 +158,22 @@ const sellGemstone = async (req, res) => {
 const updateGemstone = async (req, res) => {
   try {
     const { id } = req.params;
-    const { code, quantity, name, weight, price_per_carat, total_price, remark, shape } = req.body;
+    const {
+      code,
+      quantity,
+      name,
+      weight,
+      price_per_carat,
+      total_price,
+      remark,
+      shape
+    } = {
+      ...req.body,
+      weight: parseFloat(req.body.weight).toFixed(2),
+      price_per_carat: parseFloat(req.body.price_per_carat).toFixed(2),
+      total_price: parseFloat(req.body.total_price).toFixed(2),
+    };
+
 
     // If a new image is uploaded, use its Cloudinary URL
     const newImage = req.file ? req.file.path : null;
