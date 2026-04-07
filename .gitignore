@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables — NEVER commit real .env files
+backend/.env
+.env.local
+.env.*.local
+
+# Generated files (created at runtime)
+backend/src/invoices/*.pdf
+backend/src/uploads/
+
+# Mac junk
+**/._.DS_Store
+**/.DS_Store
+frontend/._build
+**/._ *
+
+# Build output
+frontend/build/
+frontend/build.zip
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Capacitor (mobile build artifacts)
+frontend/android/
+frontend/ios/
