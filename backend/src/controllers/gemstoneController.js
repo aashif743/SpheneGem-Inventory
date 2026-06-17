@@ -9,6 +9,12 @@ const generateStockSummaryPDF = require('../utils/generateStockSummaryPDF');
 // ─────────────────────────────────────────────────
 const LOGO_PATH = path.join(__dirname, '../public/Sphene.png');
 
+// Directory where generated invoice PDFs are stored. It is not committed to
+// git (generated output), so it may not exist on a fresh deploy. Ensure it
+// exists at startup to avoid ENOENT when createWriteStream runs.
+const INVOICES_DIR = path.join(__dirname, '../invoices');
+fs.mkdirSync(INVOICES_DIR, { recursive: true });
+
 // ─────────────────────────────────────────────────
 //  Brand colors (matched to Sphene.png logo)
 //  Dark green header, copper accent, light-green rows
@@ -41,7 +47,7 @@ const generateInvoicePDF = (sale) => {
     });
 
     const filename = `invoice_${sale.saleId}.pdf`;
-    const filePath = path.join(__dirname, '../invoices', filename);
+    const filePath = path.join(INVOICES_DIR, filename);
     const stream   = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
@@ -326,19 +332,25 @@ const sellGemstone = async (req, res) => {
 
     const saleId = saleResult.insertId;
 
-    // Generate invoice and wait for it to finish before responding
-    const filename = await generateInvoicePDF({
-      saleId,
-      code:          gem.code,
-      name:          gem.name,
-      shape:         gem.shape,
-      quantity,
-      carat_sold,
-      selling_price,
-      total_amount,
-      marking_price: gem.price_per_carat,
-      remark:        gem.remark,
-    });
+    // Generate invoice. A PDF failure must not roll back the sale or block
+    // the stock update, so it is handled separately from the core sale logic.
+    let filename = null;
+    try {
+      filename = await generateInvoicePDF({
+        saleId,
+        code:          gem.code,
+        name:          gem.name,
+        shape:         gem.shape,
+        quantity,
+        carat_sold,
+        selling_price,
+        total_amount,
+        marking_price: gem.price_per_carat,
+        remark:        gem.remark,
+      });
+    } catch (invoiceErr) {
+      console.error('Invoice generation failed (sale still recorded):', invoiceErr);
+    }
 
     // Update or remove stock
     if (remainingCarat <= 0 || remainingQuantity <= 0) {
