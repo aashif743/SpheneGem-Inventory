@@ -1,5 +1,31 @@
 # SpheneGem — Deployment Runbook
 
+> ## Status — 2026-08-28
+>
+> | Step | State |
+> |---|---|
+> | §1a Database backup | **DONE** — `~/Desktop/SpheneGem-db-backup-2026-08-28-15-00-12.sql` (verified: 1 / 565 / 683 rows) |
+> | §1b Invoice PDF backup | **DONE** — 211 PDFs, 42 MB, `~/Desktop/SpheneGem-invoice-backup-2026-08-28/` |
+> | §1c Images | **Checked** — 328 on Cloudinary (safe); 36 local ones already lost before this work |
+> | §2 Commit | **DONE** — commit `94ce273` |
+> | §2 Push | **TODO — you must run `git push origin main`** |
+> | §3a Migration 001 | **APPLIED & VERIFIED** |
+> | §3b Migration 002 | **APPLIED & VERIFIED** |
+> | §3c Migration 003 | **APPLIED & VERIFIED** — all 7 columns now `decimal(12,2)`, totals unchanged |
+> | §4 Backend (Render) | **TODO** — auto-deploys once you push |
+> | §5 Frontend build | **DONE** — `frontend/build/` is current and verified |
+> | §5 Hostinger upload | **TODO — you must upload `frontend/build/`** |
+> | §6 Android app | **TODO — optional** |
+>
+> **The database is already migrated.** The live site is running the old backend
+> against the migrated schema and works correctly (checked: all three API
+> endpoints return valid data). Migrations 001–003 are idempotent, so re-running
+> them is harmless, but there is no need.
+>
+> Everything below is kept as the reference for future releases.
+
+---
+
 Everything built in this release, in the order it must be deployed.
 Work top to bottom. Do not skip section 1.
 
