@@ -2,12 +2,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   Box,
   Button,
+  ButtonBase,
   Card,
   Chip,
   Dialog,
   DialogContent,
-  DialogTitle,
-  Grid,
   IconButton,
   Paper,
   Snackbar,
@@ -26,9 +25,9 @@ import {
   Slide,
   Avatar,
   Tooltip,
-  Divider,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  Checkbox
 } from '@mui/material';
 import {
   Edit,
@@ -38,11 +37,9 @@ import {
   Search,
   Close,
   Image as ImageIcon,
-  Inventory,
-  AttachMoney,
-  Scale,
-  Description,
   Assessment,
+  AddCircleOutline,
+  Check,
 } from '@mui/icons-material';
 import {
   getAllGemstones,
@@ -52,8 +49,14 @@ import {
 import SellGemstoneForm from './SellGemstoneForm';
 import EditGemstoneForm from './EditGemstoneForm';
 import AddGemstoneForm from './AddGemstoneForm';
+import AddStockForm from './AddStockForm';
+import SellMultipleForm from './SellMultipleForm';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
+import DialogHeader from './DialogHeader';
 import DiamondIcon from '@mui/icons-material/Diamond';
+import useAutoRefresh from '../hooks/useAutoRefresh';
+import { DATA, notifyDataChanged } from '../services/dataRefresh';
+import { money2, carat2 } from '../utils/decimal';
 
 const TransitionUp = (props) => <Slide {...props} direction="up" />;
 
@@ -62,7 +65,7 @@ let _gemstonesCache = [];
 let _gemstonesCacheTime = 0;
 const GEMSTONES_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
-const GemstoneTable = () => {
+const GemstoneTable = ({ active = true }) => {
   const [gemstones, setGemstones] = useState(_gemstonesCache);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -72,6 +75,11 @@ const GemstoneTable = () => {
   const [editingGemstone, setEditingGemstone] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [addStockTarget, setAddStockTarget] = useState(null);
+
+  // Ids ticked for a combined multi-gemstone sale
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showSellMultiple, setShowSellMultiple] = useState(false);
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -96,6 +104,17 @@ const GemstoneTable = () => {
       (gem.remark ?? '').toLowerCase().includes(q)
     );
   }, [gemstones, searchQuery]);
+
+  // Totals for the strip above the toolbar. Derived from the rows already
+  // loaded — no extra request, and it follows the active search.
+  const summary = useMemo(() => filteredGemstones.reduce(
+    (acc, gem) => ({
+      count: acc.count + 1,
+      carat: acc.carat + (parseFloat(gem.weight) || 0),
+      value: acc.value + (parseFloat(gem.total_price) || 0),
+    }),
+    { count: 0, carat: 0, value: 0 }
+  ), [filteredGemstones]);
 
   const fetchGemstones = async (force = false) => {
     if (!force && _gemstonesCache.length > 0 && Date.now() - _gemstonesCacheTime < GEMSTONES_CACHE_TTL) {
@@ -132,6 +151,7 @@ const GemstoneTable = () => {
       await deleteGemstone(deleteTarget.id);
       _gemstonesCacheTime = 0; // invalidate cache
       fetchGemstones(true);
+      notifyDataChanged([DATA.GEMSTONES, DATA.DASHBOARD]);
       setSnackbar({
         open: true,
         message: 'Gemstone deleted successfully',
@@ -151,6 +171,7 @@ const GemstoneTable = () => {
   const handleAddSuccess = () => {
     _gemstonesCacheTime = 0;
     fetchGemstones(true);
+    notifyDataChanged([DATA.GEMSTONES, DATA.DASHBOARD]);
     setShowAddForm(false);
     setSnackbar({
       open: true,
@@ -159,10 +180,71 @@ const GemstoneTable = () => {
     });
   };
 
+  const handleAddStockSuccess = () => {
+    setAddStockTarget(null);
+    _gemstonesCacheTime = 0;
+    fetchGemstones(true);
+    notifyDataChanged([DATA.GEMSTONES, DATA.DASHBOARD]);
+    setSnackbar({
+      open: true,
+      message: 'Stock added successfully',
+      severity: 'success',
+    });
+  };
+
+  // ── Multi-gemstone sale ──
+  const selectedGemstones = useMemo(
+    () => gemstones.filter((g) => selectedIds.includes(g.id)),
+    [gemstones, selectedIds]
+  );
+
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllOnPage = () => {
+    const pageIds = paginatedData.map((g) => g.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    setSelectedIds((prev) =>
+      allSelected
+        ? prev.filter((id) => !pageIds.includes(id))
+        : [...new Set([...prev, ...pageIds])]
+    );
+  };
+
+  const handleSellMultipleSuccess = (result) => {
+    setShowSellMultiple(false);
+    setSelectedIds([]);
+    _gemstonesCacheTime = 0;
+    fetchGemstones(true);
+    notifyDataChanged([DATA.GEMSTONES, DATA.SALES, DATA.DASHBOARD]);
+
+    setSnackbar({
+      open: true,
+      message: `Sold ${result?.item_count ?? ''} items on invoice ${result?.invoice_number ?? ''}`.replace(/\s+/g, ' ').trim(),
+      severity: 'success',
+    });
+
+    // Open + download the combined invoice, same behaviour as a single sale
+    if (result?.invoice) {
+      const url = `${process.env.REACT_APP_API_URL}/invoices/${result.invoice}`;
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.invoice;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const handleSellSuccess = () => {
     setSelectedGem(null);
     _gemstonesCacheTime = 0;
     fetchGemstones(true);
+    notifyDataChanged([DATA.GEMSTONES, DATA.SALES, DATA.DASHBOARD]);
     setSnackbar({
       open: true,
       message: 'Gemstone sold successfully',
@@ -197,19 +279,63 @@ const GemstoneTable = () => {
     page * rowsPerPage + rowsPerPage
   );
 
+  // Auto-refresh: on becoming the visible screen, on tab focus, and whenever
+  // any other screen reports that gemstone data changed. Replaces the old
+  // mount-only fetch, which never re-ran because App.js keeps every screen
+  // permanently mounted behind `display: none`.
+  useAutoRefresh({
+    active,
+    watch: [DATA.GEMSTONES],
+    onRefresh: () => fetchGemstones(true),
+  });
+
+  // Drop selections for stones that no longer exist (e.g. sold out elsewhere)
   useEffect(() => {
-    fetchGemstones(); // will use cache if fresh
-  }, []);
+    setSelectedIds((prev) => {
+      const live = new Set(gemstones.map((g) => g.id));
+      const next = prev.filter((id) => live.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [gemstones]);
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" fontWeight={600} gutterBottom>
-          Gemstone Inventory
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Manage your gemstone stock and transactions
-        </Typography>
+    <Box>
+      {/* ── Stock at a glance. The screen title lives in the app header, so
+             this strip carries the numbers instead of repeating the name. ── */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: { xs: 2, sm: 3.5 },
+          mb: 2.5,
+          px: { xs: 0.5, sm: 0 },
+        }}
+      >
+        {[
+          { label: 'Stones',      value: summary.count.toLocaleString('en-US') },
+          { label: 'Total Carat', value: carat2(summary.carat) },
+          { label: 'Stock Value', value: money2(summary.value) },
+        ].map((s) => (
+          <Box key={s.label}>
+            <Typography variant="eyebrow" sx={{ display: 'block' }}>{s.label}</Typography>
+            <Typography
+              variant="data"
+              sx={{ fontSize: '1.02rem', fontWeight: 600, color: 'text.primary' }}
+            >
+              {s.value}
+            </Typography>
+          </Box>
+        ))}
+
+        {selectedIds.length > 0 && (
+          <Chip
+            label={`${selectedIds.length} selected`}
+            size="small"
+            onDelete={() => setSelectedIds([])}
+            sx={{ ml: 'auto', bgcolor: '#FBF1E4', color: '#8F5A1E' }}
+          />
+        )}
       </Box>
 
       {/* ── Toolbar: search + action buttons ── */}
@@ -294,218 +420,239 @@ const GemstoneTable = () => {
             width: { xs: '100%', sm: 'auto' },
           }}
         >
+          {/* Sell Selected — only appears once something is ticked */}
+          {selectedIds.length > 0 && !isMobile && (
+            <Tooltip title="Sell all selected gemstones on one invoice">
+              <Button
+                onClick={() => setShowSellMultiple(true)}
+                variant="contained"
+                color="secondary"
+                startIcon={<Sell sx={{ fontSize: 18 }} />}
+                sx={{ flex: { xs: 1, sm: 'none' }, whiteSpace: 'nowrap' }}
+              >
+                {isMobile ? `Sell (${selectedIds.length})` : `Sell Selected (${selectedIds.length})`}
+              </Button>
+            </Tooltip>
+          )}
+
           {/* Stock Report */}
-          <Tooltip title="Download Stock Summary Report" arrow>
+          <Tooltip title="Download Stock Summary Report">
             <Button
               onClick={handleDownloadSummary}
               disabled={downloading}
+              variant="outlined"
+              color="primary"
               startIcon={
                 downloading
-                  ? <CircularProgress size={15} sx={{ color: '#2E7D32' }} />
+                  ? <CircularProgress size={15} color="inherit" />
                   : <Assessment sx={{ fontSize: 18 }} />
               }
-              sx={{
-                flex: { xs: 1, sm: 'none' },
-                borderRadius: '10px',
-                py: '9px',
-                px: { xs: 1.5, sm: 2 },
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.82rem',
-                whiteSpace: 'nowrap',
-                border: '1.5px solid #2E7D32',
-                color: '#2E7D32',
-                bgcolor: 'transparent',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  bgcolor: 'rgba(46,125,50,0.07)',
-                  border: '1.5px solid #1B5E20',
-                  color: '#1B5E20',
-                  boxShadow: '0 3px 10px rgba(27,94,32,0.18)',
-                  transform: 'translateY(-1px)',
-                },
-                '&:active': { transform: 'translateY(0)' },
-                '&.Mui-disabled': { border: '1.5px solid #A5D6A7', color: '#81C784' },
-              }}
+              sx={{ flex: { xs: 1, sm: 'none' }, whiteSpace: 'nowrap' }}
             >
               {downloading
-                ? (isMobile ? 'Wait…' : 'Generating…')
+                ? (isMobile ? 'Wait' : 'Generating')
                 : (isMobile ? 'Report' : 'Stock Report')}
             </Button>
           </Tooltip>
 
-          {/* Add Gemstone */}
-          <Button
-            onClick={() => setShowAddForm(true)}
-            startIcon={<Add sx={{ fontSize: 19 }} />}
-            sx={{
-              flex: { xs: 1, sm: 'none' },
-              borderRadius: '10px',
-              py: '9px',
-              px: { xs: 1.5, sm: 2.5 },
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '0.82rem',
-              whiteSpace: 'nowrap',
-              background: 'linear-gradient(135deg, #43A047 0%, #1B5E20 100%)',
-              color: '#fff',
-              boxShadow: '0 3px 10px rgba(27,94,32,0.30)',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)',
-                boxShadow: '0 5px 16px rgba(27,94,32,0.40)',
-                transform: 'translateY(-1px)',
-              },
-              '&:active': {
-                transform: 'translateY(0)',
-                boxShadow: '0 2px 6px rgba(27,94,32,0.30)',
-              },
-            }}
-          >
-            {isMobile ? 'Add' : 'Add Gemstone'}
-          </Button>
+          {/* Add Gemstone — on mobile the floating + button does this job */}
+          {!isMobile && (
+            <Button
+              onClick={() => setShowAddForm(true)}
+              variant="contained"
+              color="primary"
+              startIcon={<Add sx={{ fontSize: 19 }} />}
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              Add Gemstone
+            </Button>
+          )}
         </Box>
       </Box>
 
       {isMobile ? (
         <>
-          <Grid container spacing={2}>
-            {paginatedData.map((gem) => (
-              <Grid item xs={12} key={gem.id}>
-                <Card
-                  sx={{
-                    borderRadius: 3,
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)'
-                    }
-                  }}
-                >
-                  <Box sx={{ p: 2, display: 'flex', gap: 2 }}>
-                    {gem.image_url ? (
-                      <Avatar
-                        src={gem.image_url}
-                        alt={gem.name}
-                        sx={{ width: 80, height: 80, borderRadius: 2 }}
-                        variant="rounded"
-                      />
-                    ) : (
-                      <Avatar
-                        sx={{ width: 80, height: 80, borderRadius: 2, bgcolor: 'grey.200' }}
-                        variant="rounded"
-                      >
-                        <ImageIcon sx={{ color: 'grey.500' }} />
-                      </Avatar>
-                    )}
+          {paginatedData.length === 0 ? (
+            <Box sx={{ py: 7, textAlign: 'center', color: 'text.disabled' }}>
+              <DiamondIcon sx={{ fontSize: 34, opacity: 0.4, mb: 1 }} />
+              <Typography sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                {searchQuery ? 'No stones match that search' : 'No stones in stock yet'}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {searchQuery ? 'Try a different code, name or shape.' : 'Tap + to add your first gemstone.'}
+              </Typography>
+            </Box>
+          ) : (
+            <Box className="sg-stagger" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {paginatedData.map((gem) => {
+                const picked = selectedIds.includes(gem.id);
+                return (
+                  <Card
+                    key={gem.id}
+                    sx={{
+                      overflow: 'hidden',
+                      borderColor: picked ? '#BF7B30' : 'divider',
+                      bgcolor: picked ? '#FDF7EF' : 'background.paper',
+                      transition: 'border-color .18s ease, background-color .18s ease, transform .12s ease',
+                      '&:active': { transform: 'scale(0.995)' },
+                    }}
+                  >
+                    {/* Tapping the body toggles selection — a 44px icon is a
+                        small target on a phone, the whole card is not. */}
+                    <ButtonBase
+                      onClick={() => toggleSelected(gem.id)}
+                      sx={{ width: '100%', display: 'block', textAlign: 'left', p: 1.75 }}
+                    >
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                        <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                          {gem.image_url ? (
+                            <Avatar
+                              src={gem.image_url}
+                              alt=""
+                              variant="rounded"
+                              sx={{ width: 60, height: 60, borderRadius: '12px' }}
+                            />
+                          ) : (
+                            <Avatar
+                              variant="rounded"
+                              sx={{ width: 60, height: 60, borderRadius: '12px', bgcolor: '#EFEEE8' }}
+                            >
+                              <ImageIcon sx={{ color: 'text.disabled', fontSize: 22 }} />
+                            </Avatar>
+                          )}
+                          {picked && (
+                            <Box
+                              sx={{
+                                position: 'absolute', inset: 0,
+                                borderRadius: '12px',
+                                bgcolor: 'rgba(191,123,48,0.55)',
+                              }}
+                            />
+                          )}
+                          {/* Always visible, so it is obvious the card can be
+                              picked for a combined sale — an empty ring when
+                              it is not, a filled copper tick when it is. */}
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: -5, left: -5,
+                              width: 22, height: 22,
+                              borderRadius: '50%',
+                              display: 'grid', placeItems: 'center',
+                              bgcolor: picked ? '#BF7B30' : 'rgba(255,255,255,0.96)',
+                              border: '1.5px solid',
+                              borderColor: picked ? '#BF7B30' : 'divider',
+                              boxShadow: '0 1px 4px rgba(12,23,17,0.16)',
+                              transition: 'background-color .16s ease, border-color .16s ease',
+                            }}
+                          >
+                            {picked && <Check sx={{ color: '#fff', fontSize: 15 }} />}
+                          </Box>
+                        </Box>
 
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="subtitle1" fontWeight={600} noWrap>
-                          {gem.name}
-                        </Typography>
-                        <Chip
-                          label={`$${parseFloat(gem.total_price).toFixed(2)}`}
-                          color="primary"
-                          size="small"
-                          sx={{ fontWeight: 600 }}
-                        />
-                      </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }} noWrap>
+                            {gem.name || 'Unnamed stone'}
+                          </Typography>
+                          <Typography
+                            variant="data"
+                            sx={{ display: 'block', fontSize: '0.74rem', color: 'text.secondary', mt: 0.15 }}
+                          >
+                            {gem.code}{gem.shape ? `  ·  ${gem.shape}` : ''}
+                          </Typography>
 
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Code: {gem.code}
-                      </Typography>
+                          {/* Figures read as a row on a scale docket */}
+                          <Box sx={{ display: 'flex', gap: 2, mt: 1.1 }}>
+                            {[
+                              { label: 'Qty',    value: `${gem.quantity}` },
+                              { label: 'Weight', value: carat2(gem.weight) },
+                              { label: '$/ct',   value: money2(gem.price_per_carat) },
+                            ].map((f) => (
+                              <Box key={f.label} sx={{ minWidth: 0 }}>
+                                <Typography variant="eyebrow" sx={{ display: 'block', fontSize: '0.58rem' }}>
+                                  {f.label}
+                                </Typography>
+                                <Typography variant="data" sx={{ fontSize: '0.79rem', fontWeight: 600 }} noWrap>
+                                  {f.value}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
 
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                        <Chip
-                          icon={<Inventory fontSize="small" />}
-                          label={`${gem.quantity} pcs`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<DiamondIcon fontSize="small" />}
-                          label={`Shape: ${gem.shape}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<Scale fontSize="small" />}
-                          label={`${parseFloat(gem.weight).toFixed(2)} ct`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<AttachMoney fontSize="small" />}
-                          label={`$${parseFloat(gem.price_per_carat).toFixed(2)}/ct`}
-                          size="small"
-                          variant="outlined"
-                        />
+                        <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                          <Typography variant="eyebrow" sx={{ display: 'block', fontSize: '0.58rem' }}>
+                            Total
+                          </Typography>
+                          <Typography
+                            variant="data"
+                            sx={{ fontSize: '0.95rem', fontWeight: 700, color: '#1B5E20' }}
+                          >
+                            {money2(gem.total_price)}
+                          </Typography>
+                        </Box>
                       </Box>
 
                       {gem.remark && (
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            mt: 1,
-                            fontStyle: 'italic',
-                            color: 'text.secondary',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            mt: 1.25, pt: 1.25,
+                            borderTop: '1px solid', borderColor: 'divider',
+                            color: 'text.secondary', fontSize: '0.79rem',
+                            display: '-webkit-box', WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical', overflow: 'hidden',
                           }}
                         >
-                          <Description fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
                           {gem.remark}
                         </Typography>
                       )}
+                    </ButtonBase>
+
+                    {/* Actions: labelled and full height so they are easy to hit */}
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        borderTop: '1px solid', borderColor: 'divider',
+                        bgcolor: '#FAFAF7',
+                      }}
+                    >
+                      {[
+                        { label: 'Add',    icon: <AddCircleOutline sx={{ fontSize: 19 }} />, color: '#BF7B30', onClick: () => setAddStockTarget(gem) },
+                        { label: 'Edit',   icon: <Edit sx={{ fontSize: 19 }} />,             color: '#1F5F8B', onClick: () => setEditingGemstone(gem) },
+                        { label: 'Sell',   icon: <Sell sx={{ fontSize: 19 }} />,             color: '#2E7D32', onClick: () => setSelectedGem(gem) },
+                        { label: 'Delete', icon: <Delete sx={{ fontSize: 19 }} />,           color: '#B3261E', onClick: () => setDeleteTarget(gem) },
+                      ].map((a, i) => (
+                        <ButtonBase
+                          key={a.label}
+                          onClick={a.onClick}
+                          aria-label={`${a.label} ${gem.code}`}
+                          sx={{
+                            minHeight: 48,
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center', gap: '2px',
+                            color: a.color,
+                            borderLeft: i === 0 ? 'none' : '1px solid',
+                            borderColor: 'divider',
+                            '&:active': { bgcolor: 'rgba(0,0,0,0.04)' },
+                          }}
+                        >
+                          {a.icon}
+                          <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.02em' }}>
+                            {a.label}
+                          </Typography>
+                        </ButtonBase>
+                      ))}
                     </Box>
-                  </Box>
+                  </Card>
+                );
+              })}
+            </Box>
+          )}
 
-                  <Divider />
-
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-around',
-                    p: 1,
-                    bgcolor: 'action.hover'
-                  }}>
-                    <Tooltip title="Edit">
-                      <IconButton 
-                        color="primary" 
-                        onClick={() => setEditingGemstone(gem)}
-                        size="small"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton 
-                        color="error" 
-                        onClick={() => setDeleteTarget(gem)}
-                        size="small"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Sell">
-                      <IconButton 
-                        color="success" 
-                        onClick={() => setSelectedGem(gem)}
-                        size="small"
-                      >
-                        <Sell />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-          
           {/* Mobile Pagination */}
-          <Box sx={{ display: { xs: 'flex', sm: 'none' }, justifyContent: 'center', mt: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
             <TablePagination
               component="div"
               count={filteredGemstones.length}
@@ -518,24 +665,38 @@ const GemstoneTable = () => {
               }}
               rowsPerPageOptions={[5, 10, 25]}
               sx={{
-                '& .MuiTablePagination-toolbar': {
-                  padding: 0,
-                  flexWrap: 'wrap',
-                  justifyContent: 'center'
-                },
-                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                  marginBottom: 1
-                }
+                borderTop: 'none',
+                '& .MuiTablePagination-toolbar': { padding: 0, minHeight: 44 },
               }}
             />
           </Box>
         </>
       ) : (
-        <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: 'none' }}>
+        <Paper
+          variant="outlined"
+          sx={{ borderRadius: '14px', overflow: 'hidden', boxShadow: 'none' }}
+        >
           <TableContainer>
             <Table>
               <TableHead sx={{ bgcolor: 'background.default' }}>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <Tooltip title="Select all on this page" arrow>
+                      <Checkbox
+                        size="small"
+                        sx={{ color: '#BF7B30', '&.Mui-checked': { color: '#BF7B30' } }}
+                        checked={
+                          paginatedData.length > 0 &&
+                          paginatedData.every((g) => selectedIds.includes(g.id))
+                        }
+                        indeterminate={
+                          paginatedData.some((g) => selectedIds.includes(g.id)) &&
+                          !paginatedData.every((g) => selectedIds.includes(g.id))
+                        }
+                        onChange={toggleSelectAllOnPage}
+                      />
+                    </Tooltip>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Image</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Code</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
@@ -550,11 +711,20 @@ const GemstoneTable = () => {
               </TableHead>
               <TableBody>
                 {paginatedData.map((gem) => (
-                  <TableRow 
+                  <TableRow
                     key={gem.id}
                     hover
+                    selected={selectedIds.includes(gem.id)}
                     sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                   >
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        size="small"
+                        sx={{ color: '#BF7B30', '&.Mui-checked': { color: '#BF7B30' } }}
+                        checked={selectedIds.includes(gem.id)}
+                        onChange={() => toggleSelected(gem.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       {gem.image_url ? (
                         <Avatar
@@ -569,14 +739,14 @@ const GemstoneTable = () => {
                       )}
                     </TableCell>
 
-                    <TableCell>{gem.code}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{gem.code}</TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>{gem.name}</TableCell>
                     <TableCell align="right">{gem.quantity}</TableCell>
                     <TableCell>{gem.shape}</TableCell>
-                    <TableCell align="right">{parseFloat(gem.weight).toFixed(2)} ct</TableCell>
-                    <TableCell align="right">${parseFloat(gem.price_per_carat).toFixed(2)}</TableCell>
+                    <TableCell align="right">{carat2(gem.weight)}</TableCell>
+                    <TableCell align="right">{money2(gem.price_per_carat)}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>
-                      ${parseFloat(gem.total_price).toFixed(2)}
+                      {money2(gem.total_price)}
                     </TableCell>
                     
                     <TableCell>
@@ -594,10 +764,19 @@ const GemstoneTable = () => {
                     </TableCell>
                     <TableCell align="center">
                       <Box display="flex" justifyContent="center" gap={1}>
+                        <Tooltip title="Add More Stock">
+                          <IconButton
+                            size="small"
+                            onClick={() => setAddStockTarget(gem)}
+                            sx={{ color: '#BF7B30', '&:hover': { bgcolor: 'rgba(191,123,48,0.10)' } }}
+                          >
+                            <AddCircleOutline fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title="Edit">
-                          <IconButton 
-                            color="primary" 
-                            size="small" 
+                          <IconButton
+                            color="primary"
+                            size="small"
                             onClick={() => setEditingGemstone(gem)}
                           >
                             <Edit fontSize="small" />
@@ -644,16 +823,72 @@ const GemstoneTable = () => {
         </Paper>
       )}
 
+      {/* Selection bar — sits above the tab bar so the action is always in
+          reach no matter how far the list has been scrolled. */}
+      {isMobile && selectedIds.length > 0 && (
+        <Box
+          sx={{
+            position: 'fixed',
+            left: 'calc(12px + var(--safe-left))',
+            right: 'calc(12px + var(--safe-right))',
+            bottom: 'calc(var(--tabbar-h) + var(--safe-bottom) + 12px)',
+            zIndex: (t) => t.zIndex.appBar + 3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            p: 1,
+            pl: 1.75,
+            borderRadius: '16px',
+            bgcolor: 'rgba(12,23,17,0.97)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            boxShadow: '0 10px 30px rgba(12,23,17,0.35)',
+            animation: 'sg-sheet-up .26s cubic-bezier(.2,.7,.3,1) both',
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.86rem', lineHeight: 1.2 }}>
+              {selectedIds.length} selected
+            </Typography>
+            <Typography variant="data" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem' }}>
+              {carat2(selectedGemstones.reduce((n, g) => n + (parseFloat(g.weight) || 0), 0))}
+            </Typography>
+          </Box>
+
+          <ButtonBase
+            onClick={() => setSelectedIds([])}
+            sx={{
+              px: 1.75, minHeight: 40, borderRadius: '11px',
+              color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: '0.82rem',
+              '&:active': { bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
+          >
+            Clear
+          </ButtonBase>
+
+          <Button
+            onClick={() => setShowSellMultiple(true)}
+            variant="contained"
+            color="secondary"
+            startIcon={<Sell sx={{ fontSize: 17 }} />}
+            sx={{ minHeight: 40, borderRadius: '11px', whiteSpace: 'nowrap' }}
+          >
+            Sell
+          </Button>
+        </Box>
+      )}
+
       {/* Dialogs */}
       <Dialog 
         open={showAddForm} 
         onClose={() => setShowAddForm(false)} 
         fullScreen={isMobile}
+        scroll="paper"
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle sx={{ fontWeight: 600 }}>Add New Gemstone</DialogTitle>
+        <DialogHeader eyebrow="Inventory" title="Add New Gemstone" onClose={() => setShowAddForm(false)} />
         <DialogContent dividers>
           <AddGemstoneForm
             onClose={() => setShowAddForm(false)}
@@ -666,11 +901,12 @@ const GemstoneTable = () => {
         open={Boolean(editingGemstone)} 
         onClose={() => setEditingGemstone(null)} 
         fullScreen={isMobile}
+        scroll="paper"
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle sx={{ fontWeight: 600 }}>Edit Gemstone</DialogTitle>
+        <DialogHeader eyebrow="Inventory" title="Edit Gemstone" onClose={() => setEditingGemstone(null)} />
         <DialogContent dividers>
           {editingGemstone && (
             <EditGemstoneForm
@@ -682,15 +918,58 @@ const GemstoneTable = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog 
-        open={Boolean(selectedGem)} 
-        onClose={() => setSelectedGem(null)} 
+      <Dialog
+        open={showSellMultiple}
+        onClose={() => setShowSellMultiple(false)}
         fullScreen={isMobile}
+        scroll="paper"
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogHeader eyebrow="Sale" title="Sell Multiple Gemstones" onClose={() => setShowSellMultiple(false)} />
+        <DialogContent dividers>
+          {showSellMultiple && (
+            <SellMultipleForm
+              gemstones={selectedGemstones}
+              onClose={() => setShowSellMultiple(false)}
+              onSold={handleSellMultipleSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(addStockTarget)}
+        onClose={() => setAddStockTarget(null)}
+        fullScreen={isMobile}
+        scroll="paper"
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle sx={{ fontWeight: 600 }}>Sell Gemstone</DialogTitle>
+        <DialogHeader eyebrow="Inventory" title="Add More Stock" onClose={() => setAddStockTarget(null)} />
+        <DialogContent dividers>
+          {addStockTarget && (
+            <AddStockForm
+              gemstone={addStockTarget}
+              onClose={() => setAddStockTarget(null)}
+              onAdded={handleAddStockSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(selectedGem)}
+        onClose={() => setSelectedGem(null)}
+        fullScreen={isMobile}
+        scroll="paper"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogHeader eyebrow="Sale" title="Sell Gemstone" onClose={() => setSelectedGem(null)} />
         <DialogContent dividers>
           {selectedGem && (
             <SellGemstoneForm

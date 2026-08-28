@@ -7,6 +7,10 @@ import {
   Typography,
 } from '@mui/material';
 import axios from 'axios';
+import { limitDecimals, normaliseOnBlur, carat2 } from '../utils/decimal';
+
+// Carat and money fields — always 2 decimal places
+const DECIMAL_FIELDS = ['caratSold', 'sellingPrice', 'totalAmount'];
 
 const SellGemstoneForm = ({
   gemstone,
@@ -22,7 +26,11 @@ const SellGemstoneForm = ({
   const [totalAmount, setTotalAmount] = useState('');
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    // Stop a third decimal from ever being typed into a carat or price field
+    const value = DECIMAL_FIELDS.includes(name)
+      ? limitDecimals(e.target.value)
+      : e.target.value;
 
     let updatedCarat = caratSold;
     let updatedPrice = sellingPrice;
@@ -124,7 +132,7 @@ const SellGemstoneForm = ({
         Sell Gemstone: {gemstone.code}
       </Typography>
       <Typography variant="body2" sx={{ mb: 2 }}>
-        Available: <strong>{parseFloat(gemstone.weight).toFixed(2)}</strong> carat
+        Available: <strong>{carat2(gemstone.weight)}</strong> · <strong>{gemstone.quantity} pcs</strong>
       </Typography>
 
       <Box component="form" onSubmit={handleSell}>
@@ -149,6 +157,8 @@ const SellGemstoneForm = ({
               required
               value={caratSold}
               onChange={handleChange}
+              onBlur={(e) => handleChange({ target: { name: 'caratSold', value: normaliseOnBlur(e.target.value) } })}
+              inputProps={{ min: 0, step: '0.01' }}
             />
           </Grid>
           <Grid item xs={12}>
@@ -160,6 +170,8 @@ const SellGemstoneForm = ({
               required
               value={sellingPrice}
               onChange={handleChange}
+              onBlur={(e) => handleChange({ target: { name: 'sellingPrice', value: normaliseOnBlur(e.target.value) } })}
+              inputProps={{ min: 0, step: '0.01' }}
             />
           </Grid>
           <Grid item xs={12}>
@@ -171,6 +183,8 @@ const SellGemstoneForm = ({
               required
               value={totalAmount}
               onChange={handleChange}
+              onBlur={(e) => handleChange({ target: { name: 'totalAmount', value: normaliseOnBlur(e.target.value) } })}
+              inputProps={{ min: 0, step: '0.01' }}
             />
           </Grid>
         </Grid>

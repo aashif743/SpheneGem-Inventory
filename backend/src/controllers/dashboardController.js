@@ -1,5 +1,11 @@
 const db = require('../models/db');
 
+// Weights and money are always 2 decimal places, never rounded to whole units.
+const round2 = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? parseFloat(n.toFixed(2)) : 0;
+};
+
 const getDashboardStats = async (req, res) => {
   try {
     console.log('📊 Fetching dashboard data...');
@@ -35,9 +41,10 @@ const getDashboardStats = async (req, res) => {
     // Format and respond
     const data = {
       totalGemstones: gemstoneCountRows[0]?.totalGemstones || 0,
-      totalCarat: Math.round(caratSumRows[0]?.totalCarat || 0),
+      // 2 decimals, not Math.round — a 12.75 ct stock must not report as 13.
+      totalCarat: round2(caratSumRows[0]?.totalCarat || 0),
       totalSales: salesCountRows[0]?.totalSales || 0,
-      totalRevenue: Math.round(revenueRows[0]?.totalRevenue || 0),
+      totalRevenue: round2(revenueRows[0]?.totalRevenue || 0),
       monthlyGemstones: monthlyGemstonesRows || [],
       revenueByGemstone: revenueByGemstoneRows || [],
     };

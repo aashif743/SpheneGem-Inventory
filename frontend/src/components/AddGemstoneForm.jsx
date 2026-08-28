@@ -9,6 +9,10 @@ import {
 } from '@mui/material';
 import { addGemstone } from '../services/gemstoneService';
 import imageCompression from 'browser-image-compression';
+import { limitDecimals, normaliseOnBlur } from '../utils/decimal';
+
+// Fields that hold a price or a weight — always 2 decimal places
+const DECIMAL_FIELDS = ['weight', 'price_per_carat'];
 
 const AddGemstoneForm = ({
   onClose,
@@ -34,7 +38,12 @@ const AddGemstoneForm = ({
   const fieldRefs = useRef([]);
 
   const handleChange = (e, index) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    // Stop a third decimal from ever being typed into a price or weight
+    const value = DECIMAL_FIELDS.includes(name)
+      ? limitDecimals(e.target.value)
+      : e.target.value;
+
     let newForm = { ...form, [name]: value };
 
     if (name === 'weight' || name === 'price_per_carat') {
@@ -115,34 +124,53 @@ const AddGemstoneForm = ({
     }
   };
 
+  // `col` is the width in a 12-column grid — short fields sit two to a row so
+  // the form reads as one compact card instead of a long stack.
   const inputFields = [
-    { name: 'code', label: 'Code', required: true },
-    { name: 'quantity', label: 'Quantity', type: 'number', required: true },
-    { name: 'name', label: 'Name (optional)' },
-    { name: 'weight', label: 'Weight (Carat)', type: 'number', required: true, step: '0.01' },
-    { name: 'price_per_carat', label: 'Price per Carat', type: 'number', required: true, step: '0.01' },
-    { name: 'shape', label: 'Shape' },
-    { name: 'remark', label: 'Remark (optional)', multiline: true },
+    { name: 'code', label: 'Code', required: true, col: 6 },
+    { name: 'quantity', label: 'Quantity', type: 'number', required: true, col: 6 },
+    { name: 'name', label: 'Name (optional)', col: 8 },
+    { name: 'shape', label: 'Shape', col: 4 },
+    { name: 'weight', label: 'Weight (Carat)', type: 'number', required: true, step: '0.01', col: 6 },
+    { name: 'price_per_carat', label: 'Price per Carat', type: 'number', required: true, step: '0.01', col: 6 },
+    { name: 'remark', label: 'Remark (optional)', multiline: true, col: 12 },
   ];
 
   return (
-    <Paper sx={{ p: { xs: 2, sm: 4 }, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h5" gutterBottom>
-        ➕ Add New Gemstone
-      </Typography>
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3.5 }, maxWidth: 820, mx: 'auto', borderRadius: '16px' }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="eyebrow" sx={{ display: 'block', color: 'secondary.main' }}>
+          New Entry
+        </Typography>
+        <Typography variant="h5">Gemstone details</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Code, weight and price per carat are required. The total is worked out for you.
+        </Typography>
+      </Box>
+
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <Grid container spacing={2}>
           {inputFields.map((field, index) => (
-            <Grid item xs={12} sm={field.fullWidth === false ? 6 : 12} key={field.name}>
+            <Grid item xs={12} sm={field.col ?? 12} key={field.name}>
               <TextField
-                {...field}
+                label={field.label}
+                type={field.type || 'text'}
+                required={field.required}
                 fullWidth
                 value={form[field.name]}
                 name={field.name}
                 onChange={(e) => handleChange(e, index)}
+                onBlur={
+                  DECIMAL_FIELDS.includes(field.name)
+                    ? (e) =>
+                        handleChange(
+                          { target: { name: field.name, value: normaliseOnBlur(e.target.value) } },
+                          index
+                        )
+                    : undefined
+                }
                 inputRef={(el) => (fieldRefs.current[index] = el)}
-                type={field.type || 'text'}
-                inputProps={field.step ? { step: field.step } : {}}
+                inputProps={field.step ? { step: field.step, min: 0 } : {}}
                 multiline={field.multiline}
                 minRows={field.multiline ? 2 : undefined}
               />
@@ -156,6 +184,7 @@ const AddGemstoneForm = ({
               type="number"
               fullWidth
               value={form.total_price}
+              helperText="Calculated automatically: weight × price per carat"
               InputProps={{ readOnly: true }}
             />
           </Grid>

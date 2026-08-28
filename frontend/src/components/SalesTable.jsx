@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
+  ButtonBase,
   Card,
   Chip,
   Dialog,
@@ -9,7 +10,6 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  IconButton,
   Paper,
   Table,
   TableBody,
@@ -22,9 +22,7 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
-  Avatar,
   Tooltip,
-  Divider,
   InputAdornment,
   Menu,
   MenuItem
@@ -34,22 +32,38 @@ import {
   Delete,
   Search,
   Receipt,
-  Paid,
-  Scale,
   CalendarToday,
-  Inventory,
   PictureAsPdf,
   FilterAlt
 } from '@mui/icons-material';
 import { getAllSales, deleteSale } from '../services/salesService';
-import DiamondIcon from '@mui/icons-material/Diamond';
+import useAutoRefresh from '../hooks/useAutoRefresh';
+import { DATA, notifyDataChanged } from '../services/dataRefresh';
+import { money2, carat2 } from '../utils/decimal';
+
+/**
+ * Where a sale's invoice PDF lives.
+ *
+ * Sales made before multi-invoice support have invoice_id = NULL and keep
+ * their original per-sale file (`invoice_<saleId>.pdf`). Sales that are part
+ * of a combined invoice share one file named after the invoice number.
+ */
+const invoiceUrlFor = (sale) => {
+  const base = `${process.env.REACT_APP_API_URL}/invoices`;
+  return sale.invoice_id
+    ? `${base}/INV-${String(sale.invoice_id).padStart(6, '0')}.pdf`
+    : `${base}/invoice_${sale.id}.pdf`;
+};
+
+const invoiceLabelFor = (sale) =>
+  sale.invoice_id ? `INV-${String(sale.invoice_id).padStart(6, '0')}` : `#${sale.id}`;
 
 // Module-level cache — persists across remounts
 let _salesCache = [];
 let _salesCacheTime = 0;
 const SALES_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
-const SalesTable = () => {
+const SalesTable = ({ active = true }) => {
   const [sales, setSales] = useState(_salesCache);
   const [filteredSales, setFilteredSales] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,9 +77,13 @@ const SalesTable = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  useEffect(() => {
-    fetchSales();
-  }, []);
+  // Refresh when this screen is shown, when the tab regains focus, and
+  // whenever a sale is recorded anywhere in the app.
+  useAutoRefresh({
+    active,
+    watch: [DATA.SALES],
+    onRefresh: () => fetchSales(true),
+  });
 
   useEffect(() => {
     applyDateFilter(filterRange);
@@ -86,22 +104,23 @@ const SalesTable = () => {
     }
   };
 
-  const handleDownload = (saleId) => {
-    const url = `${process.env.REACT_APP_API_URL}/invoices/invoice_${saleId}.pdf`;
-  
+  const handleDownload = (sale) => {
+    const url = invoiceUrlFor(sale);
+
     // Trigger file download
     const downloadLink = document.createElement('a');
     downloadLink.href = url;
-    downloadLink.download = `invoice-${saleId}.pdf`;
+    downloadLink.download = `${invoiceLabelFor(sale)}.pdf`;
     downloadLink.style.display = 'none';
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
-  
+
     // Open in new tab
     window.open(url, '_blank');
   };
-  
+
+
 
   const handleDeleteClick = (saleId) => {
     setSelectedSaleId(saleId);
@@ -113,6 +132,7 @@ const SalesTable = () => {
       await deleteSale(selectedSaleId);
       _salesCacheTime = 0; // invalidate cache
       fetchSales(true);
+      notifyDataChanged([DATA.SALES, DATA.DASHBOARD]);
     } catch (err) {
       console.error('Failed to delete sale', err);
     } finally {
@@ -154,7 +174,6 @@ const SalesTable = () => {
       return;
     }
 
-    const now = new Date();
     let compareDate;
 
     switch (range) {
@@ -188,11 +207,27 @@ const SalesTable = () => {
     document.body.removeChild(link);
   };
 
-  const searchedSales = filteredSales.filter((sale) =>
-    sale.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.carat_sold.toString().includes(searchTerm)
-  );
+  // Null-safe: a sale row with a missing code or name must not crash the page
+  const searchedSales = filteredSales.filter((sale) => {
+    const q = searchTerm.toLowerCase();
+    return (
+      (sale.code ?? '').toLowerCase().includes(q) ||
+      (sale.name ?? '').toLowerCase().includes(q) ||
+      String(sale.carat_sold ?? '').includes(searchTerm) ||
+      invoiceLabelFor(sale).toLowerCase().includes(q)
+    );
+  });
+
+  // Totals for the strip above the toolbar — derived from the rows already
+  // loaded, so they follow the active search and date filter.
+  const summary = useMemo(() => searchedSales.reduce(
+    (acc, sale) => ({
+      count:  acc.count + 1,
+      carat:  acc.carat + (parseFloat(sale.carat_sold) || 0),
+      amount: acc.amount + (parseFloat(sale.total_amount) || 0),
+    }),
+    { count: 0, carat: 0, amount: 0 }
+  ), [searchedSales]);
 
   const paginatedSales = searchedSales.slice(
     page * rowsPerPage,
@@ -366,14 +401,27 @@ const SalesTable = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 3 } }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" fontWeight={600} gutterBottom>
-          Sales History
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          View and manage all completed transactions
-        </Typography>
+    <Box>
+      {/* Figures for whatever is currently filtered — the screen title lives
+          in the app header, so this strip carries the numbers instead. */}
+      <Box
+        sx={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+          gap: { xs: 2, sm: 3.5 }, mb: 2.5, px: { xs: 0.5, sm: 0 },
+        }}
+      >
+        {[
+          { label: 'Sales',       value: summary.count.toLocaleString('en-US') },
+          { label: 'Carat Sold',  value: carat2(summary.carat) },
+          { label: 'Revenue',     value: money2(summary.amount) },
+        ].map((s) => (
+          <Box key={s.label}>
+            <Typography variant="eyebrow" sx={{ display: 'block' }}>{s.label}</Typography>
+            <Typography variant="data" sx={{ fontSize: '1.02rem', fontWeight: 600, color: 'text.primary' }}>
+              {s.value}
+            </Typography>
+          </Box>
+        ))}
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -428,164 +476,118 @@ const SalesTable = () => {
 
       {isMobile ? (
         <>
-          <Grid container spacing={2}>
-            {paginatedSales.length > 0 ? (
-              paginatedSales.map((sale) => (
-                <Grid item xs={12} key={sale.id}>
-                  <Card sx={{ 
-                    borderRadius: 3,
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                    transition: 'transform 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)'
-                    }
-                  }}>
-                    <Box sx={{ p: 2 }}>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        mb: 1
-                      }}>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          {sale.name}
-                        </Typography>
-                        <Chip
-                          label={`$${parseFloat(sale.total_amount).toFixed(2)}`}
-                          size="small"
-                          sx={{
-                            fontWeight: 700,
-                            bgcolor: '#E8F5E9',
-                            color: '#1B5E20',
-                            border: '1px solid #A5D6A7',
-                          }}
-                        />
-                      </Box>
-
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Code: {sale.code}
+          {paginatedSales.length === 0 ? (
+            <Box sx={{ py: 7, textAlign: 'center', color: 'text.disabled' }}>
+              <Receipt sx={{ fontSize: 34, opacity: 0.4, mb: 1 }} />
+              <Typography sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                {searchTerm ? 'No sales match that search' : 'No sales recorded yet'}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {searchTerm ? 'Try a different code, name or invoice number.' : 'Sales appear here once you sell a stone.'}
+              </Typography>
+            </Box>
+          ) : (
+            <Box className="sg-stagger" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {paginatedSales.map((sale) => (
+                <Card key={sale.id} sx={{ overflow: 'hidden' }}>
+                  <Box sx={{ p: 1.75 }}>
+                    {/* Invoice number leads: it is how the client refers to a
+                        sale, and it groups the rows sold together. */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.25 }}>
+                      <Chip
+                        label={invoiceLabelFor(sale)}
+                        size="small"
+                        sx={{
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontSize: '0.68rem',
+                          ...(sale.invoice_id
+                            ? { bgcolor: '#E9F2EA', color: '#1B5E20', border: '1px solid #CBE2CF' }
+                            : { bgcolor: '#F2F1EC', color: 'text.secondary' }),
+                        }}
+                      />
+                      <Typography variant="data" sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+                        {new Date(sale.sold_at).toLocaleDateString('en-GB', {
+                          day: '2-digit', month: 'short', year: 'numeric',
+                        })}
                       </Typography>
+                    </Box>
 
-                      <Box sx={{ 
-                        display: 'flex', 
-                        gap: 1, 
-                        mt: 1, 
-                        flexWrap: 'wrap',
-                        mb: 2
-                      }}>
-                        <Chip
-                          icon={<Inventory fontSize="small" />}
-                          label={`${sale.quantity} pcs`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<DiamondIcon fontSize="small" />}
-                          label={`Shape: ${sale.shape}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<Scale fontSize="small" />}
-                          label={`${parseFloat(sale.carat_sold).toFixed(2)} ct`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<Paid fontSize="small" />}
-                          label={`$${parseFloat(sale.marking_price).toFixed(2)}/ct`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          icon={<CalendarToday fontSize="small" />}
-                          label={new Date(sale.sold_at).toLocaleDateString()}
-                          size="small"
-                          variant="outlined"
-                        />
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5 }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }} noWrap>
+                          {sale.name || 'Unnamed stone'}
+                        </Typography>
+                        <Typography
+                          variant="data"
+                          sx={{ display: 'block', fontSize: '0.74rem', color: 'text.secondary', mt: 0.15 }}
+                        >
+                          {sale.code}{sale.shape ? `  ·  ${sale.shape}` : ''}
+                        </Typography>
                       </Box>
-
-                      <Divider sx={{ my: 1 }} />
-
-                      <Box sx={{ display: 'flex', gap: 1, pt: 0.5 }}>
-                        <Button
-                          fullWidth
-                          startIcon={<Download sx={{ fontSize: 16 }} />}
-                          onClick={() => handleDownload(sale.id)}
-                          sx={{
-                            borderRadius: '8px',
-                            py: '7px',
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            fontSize: '0.8rem',
-                            border: '1.5px solid #2E7D32',
-                            color: '#2E7D32',
-                            bgcolor: 'transparent',
-                            transition: 'all 0.18s ease',
-                            '&:hover': {
-                              bgcolor: '#2E7D32',
-                              color: '#fff',
-                              boxShadow: '0 3px 10px rgba(46,125,50,0.28)',
-                            },
-                          }}
-                        >
-                          Invoice
-                        </Button>
-                        <Button
-                          fullWidth
-                          startIcon={<Delete sx={{ fontSize: 16 }} />}
-                          onClick={() => handleDeleteClick(sale.id)}
-                          sx={{
-                            borderRadius: '8px',
-                            py: '7px',
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            fontSize: '0.8rem',
-                            border: '1.5px solid #C62828',
-                            color: '#C62828',
-                            bgcolor: 'transparent',
-                            transition: 'all 0.18s ease',
-                            '&:hover': {
-                              bgcolor: '#C62828',
-                              color: '#fff',
-                              boxShadow: '0 3px 10px rgba(198,40,40,0.28)',
-                            },
-                          }}
-                        >
-                          Delete
-                        </Button>
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                        <Typography variant="eyebrow" sx={{ display: 'block', fontSize: '0.58rem' }}>
+                          Amount
+                        </Typography>
+                        <Typography variant="data" sx={{ fontSize: '1rem', fontWeight: 700, color: '#1B5E20' }}>
+                          {money2(sale.total_amount)}
+                        </Typography>
                       </Box>
                     </Box>
-                  </Card>
-                </Grid>
-              ))
-            ) : (
-              <Grid item xs={12}>
-                <Paper sx={{ 
-                  p: 4, 
-                  textAlign: 'center',
-                  borderRadius: 3
-                }}>
-                  <Receipt sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    No sales records found
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    {searchTerm ? 'Try a different search term' : 'No sales have been recorded yet'}
-                  </Typography>
-                </Paper>
-              </Grid>
-            )}
-          </Grid>
-          
-          <Box sx={{ 
-            display: { xs: 'flex', sm: 'none' }, 
-            justifyContent: 'center', 
-            mt: 2,
-            backgroundColor: 'background.paper',
-            borderRadius: 2,
-            p: 1
-          }}>
+
+                    <Box sx={{ display: 'flex', gap: 2.5, mt: 1.25 }}>
+                      {[
+                        { label: 'Qty',    value: `${sale.quantity}` },
+                        { label: 'Carat',  value: carat2(sale.carat_sold) },
+                        { label: 'Cost/ct',value: money2(sale.marking_price) },
+                      ].map((f) => (
+                        <Box key={f.label} sx={{ minWidth: 0 }}>
+                          <Typography variant="eyebrow" sx={{ display: 'block', fontSize: '0.58rem' }}>
+                            {f.label}
+                          </Typography>
+                          <Typography variant="data" sx={{ fontSize: '0.79rem', fontWeight: 600 }} noWrap>
+                            {f.value}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      borderTop: '1px solid', borderColor: 'divider',
+                      bgcolor: '#FAFAF7',
+                    }}
+                  >
+                    <ButtonBase
+                      onClick={() => handleDownload(sale)}
+                      aria-label={`Download invoice ${invoiceLabelFor(sale)}`}
+                      sx={{
+                        minHeight: 48, gap: 0.75, color: '#2E7D32', fontWeight: 700, fontSize: '0.8rem',
+                        '&:active': { bgcolor: 'rgba(46,125,50,0.08)' },
+                      }}
+                    >
+                      <Download sx={{ fontSize: 18 }} /> Invoice
+                    </ButtonBase>
+                    <ButtonBase
+                      onClick={() => handleDeleteClick(sale.id)}
+                      aria-label={`Delete sale ${sale.code}`}
+                      sx={{
+                        minHeight: 48, gap: 0.75, color: '#B3261E', fontWeight: 700, fontSize: '0.8rem',
+                        borderLeft: '1px solid', borderColor: 'divider',
+                        '&:active': { bgcolor: 'rgba(179,38,30,0.08)' },
+                      }}
+                    >
+                      <Delete sx={{ fontSize: 18 }} /> Delete
+                    </ButtonBase>
+                  </Box>
+                </Card>
+              ))}
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
             <TablePagination
               component="div"
               count={searchedSales.length}
@@ -594,40 +596,17 @@ const SalesTable = () => {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={handleChangeRowsPerPage}
               rowsPerPageOptions={[5, 10, 25]}
-              sx={{
-                '& .MuiTablePagination-toolbar': {
-                  padding: 0,
-                  flexWrap: 'wrap',
-                  justifyContent: 'center'
-                },
-                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                  marginBottom: 1,
-                  fontSize: '0.75rem'
-                }
-              }}
+              sx={{ borderTop: 'none', '& .MuiTablePagination-toolbar': { padding: 0, minHeight: 44 } }}
             />
           </Box>
         </>
       ) : (
-        <Paper sx={{ 
-          borderRadius: 3, 
-          overflow: 'hidden', 
-          boxShadow: 'none',
-          border: '1px solid',
-          borderColor: 'divider'
-        }}>
+        <Paper variant="outlined" sx={{ borderRadius: '14px', overflow: 'hidden', boxShadow: 'none' }}>
           <TableContainer>
             <Table>
-              <TableHead sx={{
-                backgroundColor: '#1B5E20',
-                '& .MuiTableCell-root': {
-                  color: '#fff',
-                  fontWeight: 600,
-                  fontSize: '0.82rem',
-                  letterSpacing: '0.02em',
-                }
-              }}>
+              <TableHead>
                 <TableRow>
+                  <TableCell>Invoice</TableCell>
                   <TableCell>Code</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell align="right">Qty</TableCell>
@@ -652,14 +631,28 @@ const SalesTable = () => {
                         }
                       }}
                     >
-                      <TableCell>{sale.code}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={invoiceLabelFor(sale)}
+                          size="small"
+                          variant={sale.invoice_id ? 'filled' : 'outlined'}
+                          sx={{
+                            fontWeight: 600,
+                            fontSize: '0.7rem',
+                            ...(sale.invoice_id
+                              ? { bgcolor: '#E8F5E9', color: '#1B5E20', border: '1px solid #A5D6A7' }
+                              : { color: 'text.secondary' }),
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{sale.code}</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>{sale.name}</TableCell>
                       <TableCell align="right">{sale.quantity}</TableCell>
                       <TableCell>{sale.shape}</TableCell>
-                      <TableCell align="right">{parseFloat(sale.carat_sold).toFixed(2)} ct</TableCell>
-                      <TableCell align="right">${parseFloat(sale.marking_price).toFixed(2)}</TableCell>
+                      <TableCell align="right">{carat2(sale.carat_sold)}</TableCell>
+                      <TableCell align="right">{money2(sale.marking_price)}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>
-                        ${parseFloat(sale.total_amount).toFixed(2)}
+                        {money2(sale.total_amount)}
                       </TableCell>
                       <TableCell>{new Date(sale.sold_at).toLocaleDateString()}</TableCell>
                       <TableCell align="center" sx={{ whiteSpace: 'nowrap', py: 1 }}>
@@ -668,7 +661,7 @@ const SalesTable = () => {
                             <Button
                               size="small"
                               startIcon={<Download sx={{ fontSize: 13 }} />}
-                              onClick={() => handleDownload(sale.id)}
+                              onClick={() => handleDownload(sale)}
                               sx={{
                                 borderRadius: '7px',
                                 py: '4px',
@@ -728,7 +721,7 @@ const SalesTable = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={10}>
                       <Box sx={{ 
                         p: 4, 
                         textAlign: 'center',

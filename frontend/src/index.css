@@ -1,13 +1,148 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ---------------------------------------------------------------------------
+   SpheneGem — base layer.
+   Component styling lives in src/theme.js; this file covers the document
+   shell, the scrollbar, and the motion the theme cannot reach.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --ink: #0c1711;
+  --parcel: #f6f5f0;
+  --line: #e4e3dc;
+  --copper: #bf7b30;
+  --verdant: #2e7d32;
+
+  /* Device insets — notch, rounded corners, home indicator. Zero on desktop. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Height of the bottom tab bar, excluding the home-indicator inset */
+  --tabbar-h: 62px;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background-color: var(--parcel);
+  font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+code, pre {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Numbers never wobble between values: tabular figures everywhere they appear */
+.tnum {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ── Scrollbar: thin, warm, unobtrusive ─────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: #cfd4d0 transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: #d3d8d4;
+  border: 3px solid var(--parcel);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover { background: #b9c1bb; }
+
+::selection { background: #cfe6d3; color: #0c1711; }
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+
+/* Screens fade up when they become the active view */
+@keyframes sg-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Dashboard panels arrive in sequence rather than all at once */
+@keyframes sg-rise-sm {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The signature: light travelling across a panel, as across a cut stone */
+@keyframes sg-sweep {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to   { transform: translateX(320%)  skewX(-18deg); }
+}
+
+/* Chart lines draw themselves in on first paint */
+@keyframes sg-draw {
+  from { stroke-dashoffset: var(--sg-len, 1200); }
+  to   { stroke-dashoffset: 0; }
+}
+
+.sg-view { animation: sg-rise .42s cubic-bezier(.2, .7, .3, 1) both; }
+
+.sg-stagger > * { animation: sg-rise-sm .44s cubic-bezier(.2, .7, .3, 1) both; }
+.sg-stagger > *:nth-child(1) { animation-delay: .04s; }
+.sg-stagger > *:nth-child(2) { animation-delay: .10s; }
+.sg-stagger > *:nth-child(3) { animation-delay: .16s; }
+.sg-stagger > *:nth-child(4) { animation-delay: .22s; }
+.sg-stagger > *:nth-child(5) { animation-delay: .28s; }
+.sg-stagger > *:nth-child(6) { animation-delay: .34s; }
+
+/* Recharts: keep tooltip cursors from stealing the eye */
+.recharts-tooltip-cursor { fill: rgba(27, 94, 32, 0.05); }
+.recharts-surface { overflow: visible; }
+
+/* Sheet sliding up from the bottom of the screen */
+@keyframes sg-sheet-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Native app feel ────────────────────────────────────────────────────── */
+
+/* Momentum scrolling, and no rubber-band on the document itself */
+body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Text selection is a desktop affordance; on touch it fires on every long
+   press and gets in the way. Inputs and data still stay selectable. */
+@media (pointer: coarse) {
+  body { user-select: none; -webkit-user-select: none; }
+  input, textarea, .tnum, [data-selectable] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
+
+/* iOS zooms the page when a field with a sub-16px font is focused */
+@media (max-width: 600px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* ── Quality floor ──────────────────────────────────────────────────────── */
+
+/* Keyboard users must always see where they are */
+:where(a, button, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--verdant);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

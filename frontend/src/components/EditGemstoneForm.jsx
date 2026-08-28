@@ -5,10 +5,10 @@ import {
   Grid,
   TextField,
   Typography,
-  MenuItem
 } from '@mui/material';
-import axios from 'axios';
 import imageCompression from 'browser-image-compression';
+import { updateGemstone } from '../services/gemstoneService';
+import { limitDecimals, normaliseOnBlur, format2 } from '../utils/decimal';
 
 const EditGemstoneForm = ({
   gemstone,
@@ -23,7 +23,12 @@ const EditGemstoneForm = ({
   const [imagePreview, setImagePreview] = useState(gemstone.image_url || null);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    // Prices and weights are limited to 2 decimals as they are typed
+    const value = (name === 'weight' || name === 'price_per_carat')
+      ? limitDecimals(e.target.value)
+      : e.target.value;
+
     let newForm = { ...form, [name]: value };
 
     if (name === 'weight' || name === 'price_per_carat') {
@@ -69,11 +74,10 @@ const EditGemstoneForm = ({
         formData.append('image', imageFile);
       }
 
-      await axios.put(`https://sphenegem-inventory.onrender.com/api/gemstones/${form.id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // Uses the shared service so the request goes to REACT_APP_API_URL.
+      // This used to be a hardcoded production URL, which meant editing from a
+      // local dev build silently wrote to the client's live database.
+      await updateGemstone(form.id, formData);
 
       onUpdated();
       onClose();
@@ -90,10 +94,18 @@ const EditGemstoneForm = ({
   };
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        ✏️ Edit Gemstone: {gemstone.code}
-      </Typography>
+    <Box sx={{ mt: 1 }}>
+      <Box sx={{ mb: 2.5 }}>
+        <Typography variant="eyebrow" sx={{ display: 'block', color: 'secondary.main' }}>
+          Editing
+        </Typography>
+        <Typography variant="data" sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
+          {gemstone.code}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+          {gemstone.name}
+        </Typography>
+      </Box>
       <Box component="form" onSubmit={handleSubmit}>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
@@ -121,6 +133,7 @@ const EditGemstoneForm = ({
               required
               value={form.weight ?? ''} // Allow direct typing
               onChange={handleChange}
+              onBlur={(e) => handleChange({ target: { name: 'weight', value: normaliseOnBlur(e.target.value) } })}
               inputProps={{ step: '0.01' }}
             />
           </Grid>
@@ -134,12 +147,21 @@ const EditGemstoneForm = ({
               required
               value={form.price_per_carat ?? ''}
               onChange={handleChange}
+              onBlur={(e) => handleChange({ target: { name: 'price_per_carat', value: normaliseOnBlur(e.target.value) } })}
               inputProps={{ step: '0.01' }}
             />
           </Grid>
 
           <Grid item xs={12}>
-            <TextField name="total_price" label="Total Price" type="number" fullWidth value={Number(form.total_price).toFixed(2)} InputProps={{ readOnly: true }} />
+            <TextField
+              name="total_price"
+              label="Total Price"
+              type="number"
+              fullWidth
+              value={format2(form.total_price, '')}
+              helperText="Calculated automatically: weight × price per carat"
+              InputProps={{ readOnly: true }}
+            />
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField name="shape" label="Shape" fullWidth required value={form.shape} onChange={handleChange}>
