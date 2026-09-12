@@ -27,7 +27,12 @@ import {
   Tooltip,
   InputAdornment,
   CircularProgress,
-  Checkbox
+  Checkbox,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import {
   Edit,
@@ -40,6 +45,12 @@ import {
   Assessment,
   AddCircleOutline,
   Check,
+  KeyboardArrowDown,
+  Category as CategoryIcon,
+  Interests as ShapeIcon,
+  Scale as ScaleIcon,
+  Straighten as DimensionIcon,
+  Summarize as SummarizeIcon,
 } from '@mui/icons-material';
 import {
   getAllGemstones,
@@ -87,6 +98,7 @@ const GemstoneTable = ({ active = true }) => {
     severity: 'success',
   });
   const [downloading, setDownloading] = useState(false);
+  const [reportMenuAnchor, setReportMenuAnchor] = useState(null);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -252,15 +264,16 @@ const GemstoneTable = ({ active = true }) => {
     });
   };
 
-  const handleDownloadSummary = async () => {
+  const handleDownloadSummary = async (group = 'all') => {
+    setReportMenuAnchor(null);
     setDownloading(true);
     try {
-      const res = await downloadStockSummary();
+      const res = await downloadStockSummary(group);
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url  = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `stock_summary_${new Date().toISOString().slice(0,10)}.pdf`;
+      link.download = `stock_${group}_${new Date().toISOString().slice(0,10)}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -435,10 +448,12 @@ const GemstoneTable = ({ active = true }) => {
             </Tooltip>
           )}
 
-          {/* Stock Report */}
-          <Tooltip title="Download Stock Summary Report">
+          {/* Stock Report — a menu so the client can pull the full report or
+              any single grouping (category / shape / carat / dimension) as its
+              own PDF. */}
+          <Tooltip title="Download a stock report">
             <Button
-              onClick={handleDownloadSummary}
+              onClick={(e) => setReportMenuAnchor(e.currentTarget)}
               disabled={downloading}
               variant="outlined"
               color="primary"
@@ -447,6 +462,7 @@ const GemstoneTable = ({ active = true }) => {
                   ? <CircularProgress size={15} color="inherit" />
                   : <Assessment sx={{ fontSize: 18 }} />
               }
+              endIcon={downloading ? null : <KeyboardArrowDown sx={{ fontSize: 18 }} />}
               sx={{ flex: { xs: 1, sm: 'none' }, whiteSpace: 'nowrap' }}
             >
               {downloading
@@ -454,6 +470,40 @@ const GemstoneTable = ({ active = true }) => {
                 : (isMobile ? 'Report' : 'Stock Report')}
             </Button>
           </Tooltip>
+          <Menu
+            anchorEl={reportMenuAnchor}
+            open={Boolean(reportMenuAnchor)}
+            onClose={() => setReportMenuAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { sx: { minWidth: 236, borderRadius: '12px', mt: 0.5 } } }}
+          >
+            <MenuItem onClick={() => handleDownloadSummary('all')}>
+              <ListItemIcon><SummarizeIcon fontSize="small" sx={{ color: '#BF7B30' }} /></ListItemIcon>
+              <ListItemText
+                primary="Full report"
+                secondary="All sections in one PDF"
+                primaryTypographyProps={{ fontWeight: 600 }}
+              />
+            </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem onClick={() => handleDownloadSummary('category')}>
+              <ListItemIcon><CategoryIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Category-wise" />
+            </MenuItem>
+            <MenuItem onClick={() => handleDownloadSummary('shape')}>
+              <ListItemIcon><ShapeIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Shape-wise" />
+            </MenuItem>
+            <MenuItem onClick={() => handleDownloadSummary('carat')}>
+              <ListItemIcon><ScaleIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Carat-range-wise" />
+            </MenuItem>
+            <MenuItem onClick={() => handleDownloadSummary('dimension')}>
+              <ListItemIcon><DimensionIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Dimension-wise" secondary="From the code field, e.g. 10x7mm" />
+            </MenuItem>
+          </Menu>
 
           {/* Add Gemstone — on mobile the floating + button does this job */}
           {!isMobile && (

@@ -827,7 +827,19 @@ const downloadStockSummary = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ message: 'No gemstones in stock' });
     }
-    generateStockSummaryPDF(res, rows);
+
+    // ?group=all|category|shape|carat|dimension.
+    // Anything unknown (or missing) falls back to the full report, so an old
+    // client that calls the endpoint with no param keeps working unchanged.
+    const requested = String(req.query.group || 'all').toLowerCase();
+    const sections =
+      requested === 'all'
+        ? generateStockSummaryPDF.ALL_SECTIONS
+        : generateStockSummaryPDF.ALL_SECTIONS.includes(requested)
+          ? [requested]
+          : generateStockSummaryPDF.ALL_SECTIONS;
+
+    generateStockSummaryPDF(res, rows, { sections });
   } catch (err) {
     console.error('Error generating stock summary:', err);
     res.status(500).json({ message: 'Failed to generate report' });

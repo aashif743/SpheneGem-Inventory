@@ -79,6 +79,9 @@ export const searchGemstones = async (query) => {
   return await axios.get(`${API_URL}/search?query=${encodeURIComponent(query)}`, axiosConfig);
 };
 
-export const downloadStockSummary = async () => {
-  return await axios.get(`${API_URL}/summary-report`, { ...axiosConfig, responseType: 'blob' });
+// group: 'all' | 'category' | 'shape' | 'carat' | 'dimension'.
+// Omitting it (or passing 'all') returns the full multi-section report.
+export const downloadStockSummary = async (group = 'all') => {
+  const qs = group && group !== 'all' ? `?group=${encodeURIComponent(group)}` : '';
+  return await axios.get(`${API_URL}/summary-report${qs}`, { ...axiosConfig, responseType: 'blob' });
 };
