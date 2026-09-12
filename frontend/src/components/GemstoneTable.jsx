@@ -46,6 +46,7 @@ import {
   AddCircleOutline,
   Check,
   KeyboardArrowDown,
+  HelpOutline,
   Category as CategoryIcon,
   Interests as ShapeIcon,
   Scale as ScaleIcon,
@@ -65,6 +66,11 @@ import SellMultipleForm from './SellMultipleForm';
 import DeleteConfirmDialog from './DeleteConfirmDialog';
 import DialogHeader from './DialogHeader';
 import DiamondIcon from '@mui/icons-material/Diamond';
+import {
+  parseInventorySearch,
+  matchesInventorySearch,
+  describeInventorySearch,
+} from '../utils/gemstoneSearch';
 import useAutoRefresh from '../hooks/useAutoRefresh';
 import { DATA, notifyDataChanged } from '../services/dataRefresh';
 import { money2, carat2 } from '../utils/decimal';
@@ -104,18 +110,15 @@ const GemstoneTable = ({ active = true }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Client-side instant search — no API call, no debounce needed, no race conditions
+  // Unit-aware search: "10ct", ">5ct", "1000-2000$" filter by the stone's
+  // own weight / price columns; anything else stays a plain text match.
+  const parsedSearch = useMemo(() => parseInventorySearch(searchQuery), [searchQuery]);
+  const searchHint   = useMemo(() => describeInventorySearch(parsedSearch), [parsedSearch]);
+
   const filteredGemstones = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return gemstones;
-    return gemstones.filter(gem =>
-      (gem.code   ?? '').toLowerCase().includes(q) ||
-      (gem.name   ?? '').toLowerCase().includes(q) ||
-      (gem.shape  ?? '').toLowerCase().includes(q) ||
-      String(gem.weight        ?? '').includes(q)  ||
-      String(gem.price_per_carat ?? '').includes(q) ||
-      (gem.remark ?? '').toLowerCase().includes(q)
-    );
-  }, [gemstones, searchQuery]);
+    if (parsedSearch.kind === 'empty') return gemstones;
+    return gemstones.filter(gem => matchesInventorySearch(gem, parsedSearch));
+  }, [gemstones, parsedSearch]);
 
   // Totals for the strip above the toolbar. Derived from the rows already
   // loaded — no extra request, and it follows the active search.
@@ -365,7 +368,9 @@ const GemstoneTable = ({ active = true }) => {
         <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: 0 } }}>
           <TextField
             fullWidth
-            placeholder="Search by name, code, shape, weight, remark…"
+            placeholder={isMobile
+              ? 'Search — or 10ct, 1500$, >5ct'
+              : 'Search code, name, shape…  or try  10ct · >5ct · 1000-2000$ · 1500$'}
             variant="outlined"
             size="small"
             value={searchQuery}
@@ -382,22 +387,54 @@ const GemstoneTable = ({ active = true }) => {
                   />
                 </InputAdornment>
               ),
-              endAdornment: searchQuery ? (
+              endAdornment: (
                 <InputAdornment position="end">
-                  <Tooltip title="Clear search" arrow>
-                    <IconButton
-                      size="small"
-                      onClick={handleClearSearch}
-                      sx={{
-                        color: 'text.secondary',
-                        '&:hover': { color: '#C62828', bgcolor: 'rgba(198,40,40,0.06)' },
-                      }}
-                    >
-                      <Close sx={{ fontSize: 16 }} />
+                  {searchQuery && (
+                    <Tooltip title="Clear search" arrow>
+                      <IconButton
+                        size="small"
+                        onClick={handleClearSearch}
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': { color: '#C62828', bgcolor: 'rgba(198,40,40,0.06)' },
+                        }}
+                      >
+                        <Close sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  <Tooltip
+                    arrow
+                    title={
+                      <Box sx={{ py: 0.5, lineHeight: 1.7 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.75rem', mb: 0.5 }}>
+                          Smart search
+                        </Typography>
+                        {[
+                          ['10ct', 'about 10 carat (±5%)'],
+                          ['>5ct  <2ct', 'more / less than'],
+                          ['5-10ct', 'carat range'],
+                          ['1500$', 'stones worth ~$1500'],
+                          ['>1000$', 'price above'],
+                          ['1000-2000$', 'price range'],
+                          ['sph, SG005…', 'code / name / shape'],
+                        ].map(([ex, desc]) => (
+                          <Box key={ex} sx={{ display: 'flex', gap: 1, fontSize: '0.72rem' }}>
+                            <Box component="span" sx={{ fontFamily: 'monospace', minWidth: 92, color: '#A5D6A7' }}>
+                              {ex}
+                            </Box>
+                            <Box component="span" sx={{ color: 'rgba(255,255,255,0.85)' }}>{desc}</Box>
+                          </Box>
+                        ))}
+                      </Box>
+                    }
+                  >
+                    <IconButton size="small" sx={{ color: 'text.disabled', '&:hover': { color: '#2E7D32' } }}>
+                      <HelpOutline sx={{ fontSize: 17 }} />
                     </IconButton>
                   </Tooltip>
                 </InputAdornment>
-              ) : null,
+              ),
               sx: {
                 borderRadius: '10px',
                 bgcolor: 'background.paper',
@@ -411,16 +448,30 @@ const GemstoneTable = ({ active = true }) => {
             }}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
           />
-          {/* Live result count */}
+          {/* Live result count + how the query was understood */}
           {searchQuery.trim() && (
-            <Typography
-              variant="caption"
-              sx={{ ml: 1.5, mt: 0.5, display: 'block', color: '#2E7D32', fontWeight: 500 }}
-            >
-              {filteredGemstones.length === 0
-                ? 'No results found'
-                : `${filteredGemstones.length} result${filteredGemstones.length !== 1 ? 's' : ''} found`}
-            </Typography>
+            <Box sx={{ ml: 1.5, mt: 0.6, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Typography variant="caption" sx={{ color: '#2E7D32', fontWeight: 600 }}>
+                {filteredGemstones.length === 0
+                  ? 'No results found'
+                  : `${filteredGemstones.length} result${filteredGemstones.length !== 1 ? 's' : ''} found`}
+              </Typography>
+              {searchHint && (
+                <Chip
+                  size="small"
+                  label={searchHint}
+                  sx={{
+                    height: 20,
+                    fontSize: '0.68rem',
+                    fontWeight: 600,
+                    color: parsedSearch.kind === 'text' ? 'text.secondary' : '#BF7B30',
+                    bgcolor: parsedSearch.kind === 'text' ? '#F2F1EC' : '#FBF1E4',
+                    border: '1px solid',
+                    borderColor: parsedSearch.kind === 'text' ? '#E4E3DC' : '#EACE9E',
+                  }}
+                />
+              )}
+            </Box>
           )}
         </Box>
 
@@ -529,7 +580,7 @@ const GemstoneTable = ({ active = true }) => {
                 {searchQuery ? 'No stones match that search' : 'No stones in stock yet'}
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                {searchQuery ? 'Try a different code, name or shape.' : 'Tap + to add your first gemstone.'}
+                {searchQuery ? 'Try a code or name — or a size like 10ct or 1500$.' : 'Tap + to add your first gemstone.'}
               </Typography>
             </Box>
           ) : (
