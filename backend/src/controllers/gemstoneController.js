@@ -270,7 +270,7 @@ const generateInvoicePDF = (sale) => {
 // ─────────────────────────────────────────────────
 const addGemstone = async (req, res) => {
   try {
-    const { code, quantity, name, weight, price_per_carat, total_price, remark, shape } = req.body;
+    const { code, quantity, name, weight, price_per_carat, total_price, remark, shape, dimension } = req.body;
     const image = req.file ? req.file.path : null;
 
     if (!code || !weight || !price_per_carat || !total_price) {
@@ -280,16 +280,19 @@ const addGemstone = async (req, res) => {
     const formattedWeight        = round2(weight);
     const formattedPricePerCarat = round2(price_per_carat);
     const formattedTotalPrice    = round2(total_price);
+    // dimension is optional; store NULL rather than an empty string so the
+    // report's "has a dimension?" check stays simple.
+    const cleanDimension = (dimension && String(dimension).trim()) || null;
 
     const query = `
-      INSERT INTO gemstones (code, quantity, name, weight, price_per_carat, total_price, image_url, remark, shape)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO gemstones (code, quantity, name, weight, price_per_carat, total_price, image_url, remark, shape, dimension)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await db.execute(query, [
       code, quantity, name,
       formattedWeight, formattedPricePerCarat, formattedTotalPrice,
-      image, remark, shape,
+      image, remark, shape, cleanDimension,
     ]);
 
     res.status(201).json({ message: 'Gemstone added successfully' });
@@ -390,19 +393,20 @@ const updateGemstone = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      code, quantity, name, remark, shape
+      code, quantity, name, remark, shape, dimension
     } = req.body;
 
     const weight          = round2(req.body.weight);
     const price_per_carat = round2(req.body.price_per_carat);
     const total_price     = round2(req.body.total_price);
+    const cleanDimension  = (dimension && String(dimension).trim()) || null;
 
     const newImage = req.file ? req.file.path : null;
-    const fields = [code, quantity, name, weight, price_per_carat, total_price, remark, shape];
+    const fields = [code, quantity, name, weight, price_per_carat, total_price, remark, shape, cleanDimension];
 
     let query = `
       UPDATE gemstones
-      SET code = ?, quantity = ?, name = ?, weight = ?, price_per_carat = ?, total_price = ?, remark = ?, shape = ?
+      SET code = ?, quantity = ?, name = ?, weight = ?, price_per_carat = ?, total_price = ?, remark = ?, shape = ?, dimension = ?
     `;
 
     if (newImage) {
@@ -831,15 +835,16 @@ const downloadStockSummary = async (req, res) => {
     // ?group=all|category|shape|carat|dimension.
     // Anything unknown (or missing) falls back to the full report, so an old
     // client that calls the endpoint with no param keeps working unchanged.
+    //
+    // The full report ('all') stays a one-page-per-section AGGREGATE overview.
+    // A single grouping is rendered in DETAIL — every stone listed under its
+    // group with its name — which is what the client asked to see per report.
     const requested = String(req.query.group || 'all').toLowerCase();
-    const sections =
-      requested === 'all'
-        ? generateStockSummaryPDF.ALL_SECTIONS
-        : generateStockSummaryPDF.ALL_SECTIONS.includes(requested)
-          ? [requested]
-          : generateStockSummaryPDF.ALL_SECTIONS;
+    const isSingle = generateStockSummaryPDF.ALL_SECTIONS.includes(requested);
+    const sections = isSingle ? [requested] : generateStockSummaryPDF.ALL_SECTIONS;
+    const mode = isSingle ? 'detail' : 'summary';
 
-    generateStockSummaryPDF(res, rows, { sections });
+    generateStockSummaryPDF(res, rows, { sections, mode });
   } catch (err) {
     console.error('Error generating stock summary:', err);
     res.status(500).json({ message: 'Failed to generate report' });

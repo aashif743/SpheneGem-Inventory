@@ -1,5 +1,26 @@
 # SpheneGem — Deployment Runbook
 
+> ## Status — 2026-09-17 (stock-report + dimension release)
+>
+> | Step | State |
+> |---|---|
+> | Database backup | **DONE** — `~/Desktop/SpheneGem-db-backup-2026-09-17-07-11-40.sql` (verified: admin 1 / gemstones 627 / invoices 1 / sales 707 / stock_additions 14) |
+> | Migration 004 (add `gemstones.dimension`) | **APPLIED & VERIFIED on live** — nullable varchar(50), all 627 rows intact, totals unchanged. Idempotent. |
+> | Backend code (report detail mode + save dimension) | **TODO — auto-deploys when you `git push`** |
+> | Frontend build | **DONE** — `frontend/build/` current (`main.8d000af1.js`), Dimension field verified in Add form |
+> | Hostinger upload | **TODO — upload `frontend/build/` contents** |
+>
+> **Migration 004 is already on the live DB.** It is additive (one nullable
+> column), so the currently-deployed backend keeps working untouched until you
+> push the new code. Order is safe either way: column exists first, new backend
+> second.
+>
+> This release is otherwise **read-mostly**: the only write path touched is
+> add/update gemstone (now also stores the optional dimension). No existing data
+> is rewritten; `image_url` and invoices are untouched.
+>
+> ---
+
 > ## Status — 2026-08-28
 >
 > | Step | State |

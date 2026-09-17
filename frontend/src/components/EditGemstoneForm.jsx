@@ -168,6 +168,15 @@ const EditGemstoneForm = ({
             </TextField>
           </Grid>
           <Grid item xs={12} sm={6}>
+            <TextField
+              name="dimension"
+              label="Dimension (optional, e.g. 10x7mm)"
+              fullWidth
+              value={form.dimension || ''}
+              onChange={handleChange}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
             <Button variant="outlined" component="label" fullWidth>
               Upload Image
               <input type="file" accept="image/*" name="image" hidden onChange={handleImageChange} />

@@ -29,6 +29,7 @@ const AddGemstoneForm = ({
     price_per_carat: '',
     total_price: '',
     shape: '',
+    dimension: '',
     remark: '',
     image: null,
   });
@@ -133,6 +134,7 @@ const AddGemstoneForm = ({
     { name: 'shape', label: 'Shape', col: 4 },
     { name: 'weight', label: 'Weight (Carat)', type: 'number', required: true, step: '0.01', col: 6 },
     { name: 'price_per_carat', label: 'Price per Carat', type: 'number', required: true, step: '0.01', col: 6 },
+    { name: 'dimension', label: 'Dimension (optional, e.g. 10x7mm)', col: 12 },
     { name: 'remark', label: 'Remark (optional)', multiline: true, col: 12 },
   ];
 
