@@ -1,5 +1,40 @@
 # SpheneGem — Deployment Runbook
 
+> ## Status — 2026-11-25 (backend moved from Render to VPS)
+>
+> **Render is no longer used.** Anything below that mentions Render or
+> "auto-deploys on git push" is history.
+>
+> | Piece | Where it runs now |
+> |---|---|
+> | Database | Hostinger MySQL `srv1749.hstgr.io` (unchanged) |
+> | Backend API | VPS `https://srv2154051.hstgr.cloud` (CloudPanel, nginx → node on :5000) |
+> | Frontend (web) | Hostinger `https://lightcoral-otter-280862.hostingersite.com` (account `u139665588`) |
+>
+> **Backend on the VPS**
+> - Code: `/home/sphenegem/htdocs/srv2154051.hstgr.cloud` (git clone), env in `backend/.env`.
+> - Process: pm2 app `sphenegem-api`, run as user `sphenegem`, started on boot by `pm2-sphenegem.service`.
+> - Invoices: `backend/src/invoices/` — **persistent now** (not wiped by deploys), but not in git
+>   and not in the DB. Back this folder up.
+> - Images: all on Cloudinary. Nothing stored on disk.
+>
+> **Deploying backend changes** (`git push` no longer deploys anything):
+> ```bash
+> ssh root@srv2154051.hstgr.cloud
+> cd /home/sphenegem/htdocs/srv2154051.hstgr.cloud && sudo -u sphenegem git pull
+> cd backend && sudo -u sphenegem env PATH=/home/sphenegem/.nvm/versions/node/v22.23.5/bin:$PATH npm ci --omit=dev
+> sudo -u sphenegem env PATH=/home/sphenegem/.nvm/versions/node/v22.23.5/bin:$PATH PM2_HOME=/home/sphenegem/.pm2 pm2 restart sphenegem-api
+> ```
+>
+> **Deploying the frontend:** `cd frontend && npm run build`, zip the *contents* of `build/`
+> (includes `.htaccess` for SPA routing, from `public/.htaccess`), upload to the site's
+> `public_html` and extract. `frontend/.env` must point at `https://srv2154051.hstgr.cloud`.
+>
+> **Backup taken before the switch:** `~/Desktop/SpheneGem-backup-2026-11-25/` — DB dump,
+> all 312 invoice PDFs, all 107 Cloudinary images, and the previous `public_html`.
+>
+> ---
+
 > ## Status — 2026-09-17 (stock-report + dimension release)
 >
 > | Step | State |
